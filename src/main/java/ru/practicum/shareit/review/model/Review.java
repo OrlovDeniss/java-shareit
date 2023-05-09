@@ -1,18 +1,16 @@
-package ru.practicum.shareit.item.model;
+package ru.practicum.shareit.review.model;
 
 import lombok.Builder;
 import lombok.Data;
 import ru.practicum.shareit.abstraction.model.UserObject;
-import ru.practicum.shareit.request.model.ItemRequest;
+import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
 
 @Data
 @Builder
-public class Item implements UserObject {
+public class Review implements UserObject {
     private Long id;
-    private String name;
     private String description;
-    private Boolean available;
     private User user;
-    private ItemRequest request;
+    private Item item;
 }
