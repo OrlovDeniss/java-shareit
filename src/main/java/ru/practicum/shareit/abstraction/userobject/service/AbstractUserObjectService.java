@@ -77,7 +77,7 @@ public abstract class AbstractUserObjectService<D, E extends UserObject>
     public void delete(Long objectIid, Long userId) {
         userOwnsObjectOrThrow(objectIid, userId);
         objectRepo.deleteUserObject(objectIid, userId);
-        log.info("Удален: id = {}.", objectIid);
+        log.info("delete: id = {}.", objectIid);
     }
 
     @Override

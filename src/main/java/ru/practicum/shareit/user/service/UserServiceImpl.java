@@ -43,10 +43,9 @@ public class UserServiceImpl extends AbstractService<UserDto, User> implements U
     public UserDto patch(Long id, Map<String, Object> newFields) {
         UserDto userDTO = findById(id);
         String newEmail = String.valueOf(newFields.get("email"));
-        if (userDTO.getEmail().equals(newEmail)) {
-            return mapper.toDto(repository.update(mapper.toEntity(tryUpdateFields(userDTO, newFields))));
+        if (repository.existsByEmail(newEmail) && !userDTO.getEmail().equals(newEmail)) {
+            throw new EmailAlreadyExistsException(String.format("Email = %s уже существует!", newEmail));
         } else {
-            throwIfEmailAlreadyExists(newEmail);
             return mapper.toDto(repository.update(mapper.toEntity(tryUpdateFields(userDTO, newFields))));
         }
     }

@@ -2,6 +2,7 @@ package ru.practicum.shareit.abstraction.repository;
 
 import ru.practicum.shareit.abstraction.model.Entity;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface Repository<E extends Entity> {
@@ -15,5 +16,7 @@ public interface Repository<E extends Entity> {
     void delete(Long id);
 
     boolean existsById(Long id);
+
+    List<E> findAllWhereIdIn(List<Long> id);
 
 }

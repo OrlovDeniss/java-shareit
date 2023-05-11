@@ -2,7 +2,6 @@ package ru.practicum.shareit.abstraction.userobject.repository;
 
 import lombok.RequiredArgsConstructor;
 import ru.practicum.shareit.abstraction.model.UserObject;
-import ru.practicum.shareit.exception.EntityNotFoundException;
 import ru.practicum.shareit.abstraction.repository.AbstractRepository;
 
 import java.util.ArrayList;
@@ -37,11 +36,7 @@ public abstract class AbstractUserObjectRepository<E extends UserObject>
 
     @Override
     public List<E> findALlWhereIdIn(List<Long> objectsId) {
-        List<E> objects = new ArrayList<>();
-        for (Long id : objectsId) {
-            objects.add(super.findById(id).orElseThrow(EntityNotFoundException::new));
-        }
-        return objects;
+        return super.findAllWhereIdIn(objectsId);
     }
 
     private void putUserObject(Long userId, Long objectId) {

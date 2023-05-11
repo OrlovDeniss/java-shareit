@@ -43,4 +43,16 @@ public abstract class AbstractRepository<E extends Entity> implements Repository
     public boolean existsById(Long id) {
         return data.containsKey(id);
     }
+
+    @Override
+    public List<E> findAllWhereIdIn(List<Long> id) {
+        List<E> list = new ArrayList<>();
+        for (Long i : id) {
+            if (existsById(i)) {
+                list.add(data.get(i));
+            }
+        }
+        return list;
+    }
+
 }
