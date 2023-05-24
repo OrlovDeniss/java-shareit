@@ -1,24 +1,26 @@
 package ru.practicum.shareit.abstraction.userobject.service;
 
+import ru.practicum.shareit.abstraction.model.Identified;
+
 import java.util.List;
 import java.util.Map;
 
-public interface UserObjectService<D> {
+public interface UserObjectService<I extends Identified, O> {
 
-    D findById(Long id);
+    O findById(Long objectId);
 
-    List<D> findAllByUserId(Long userId);
+    List<O> findAllByUserId(Long userId);
 
-    D create(D d, Long userId);
+    O create(I in, Long userId);
 
-    D update(D d, Long userId);
+    O update(I in, Long userId);
 
-    D patch(Long id, Map<String, Object> fields, Long userId);
+    O patch(Long id, Map<String, Object> fields);
 
     void delete(Long id, Long userId);
 
     boolean userExistsById(Long userId);
 
-    boolean objectExistsById(Long id);
+    void throwWhenUserNotOwnObject(Long objectId, Long userId);
 
 }

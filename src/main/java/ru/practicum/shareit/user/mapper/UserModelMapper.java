@@ -3,17 +3,19 @@ package ru.practicum.shareit.user.mapper;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.abstraction.mapper.AbstractModelMapper;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserDtoShort;
 import ru.practicum.shareit.user.model.User;
 
 @Service
-public class UserModelMapper extends AbstractModelMapper<UserDto, User> {
+public class UserModelMapper extends AbstractModelMapper<UserDto, UserDto, User> {
 
     @Override
     public UserDto toDto(User user) {
-        return new UserDto(
-                user.getId(),
-                user.getName(),
-                user.getEmail());
+        return UserDto.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .build();
     }
 
     @Override
@@ -22,6 +24,12 @@ public class UserModelMapper extends AbstractModelMapper<UserDto, User> {
                 .id(userDTO.getId())
                 .name(userDTO.getName())
                 .email(userDTO.getEmail())
+                .build();
+    }
+
+    public UserDtoShort toDtoShort(User user) {
+        return UserDtoShort.builder()
+                .id(user.getId())
                 .build();
     }
 

@@ -1,84 +1,57 @@
 package ru.practicum.shareit.abstraction.userobject.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-import ru.practicum.shareit.abstraction.model.Entity;
+import ru.practicum.shareit.abstraction.model.Identified;
 import ru.practicum.shareit.abstraction.userobject.service.UserObjectService;
-import ru.practicum.shareit.exception.EntityNotFoundException;
-import ru.practicum.shareit.exception.UserNotFoundException;
+import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Positive;
 import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
-public abstract class AbstractUserObjectController<D extends Entity> implements UserObjectController<D> {
+public abstract class AbstractUserObjectController<I extends Identified, O>
+        implements UserObjectController<I, O> {
 
-    private final UserObjectService<D> service;
+    private final UserObjectService<I, O> service;
 
-    @GetMapping("{id}")
-    public D get(@PathVariable @Positive Long id,
-                 @RequestHeader(value = USER_ID) @Positive Long userId) {
-        objectExistsOrThrow(id);
-        userExistsOrThrow(userId);
-        return service.findById(id);
+    public O get(Long objectId, Long userId) {
+        throwWhenUserNotFound(userId);
+        return service.findById(objectId);
     }
 
-    @PostMapping
-    public D add(@Valid @RequestBody D d,
-                 @RequestHeader(value = USER_ID) @Positive Long userId) {
-        userExistsOrThrow(userId);
-        return service.create(d, userId);
+    public O add(I dtoIn, Long userId) {
+        throwWhenUserNotFound(userId);
+        return service.create(dtoIn, userId);
     }
 
-    @PutMapping
-    public D update(@Valid @RequestBody D d,
-                    @RequestHeader(value = USER_ID) @Positive Long userId) {
-        objectExistsOrThrow(d.getId());
-        userExistsOrThrow(userId);
-        return service.update(d, userId);
+    public O update(I dtoIn, Long userId) {
+        throwWhenUserNotFound(userId);
+        return service.update(dtoIn, userId);
     }
 
-    @PatchMapping("{id}")
-    public D patch(@PathVariable @Positive Long id,
-                   @RequestBody Map<String, Object> fields,
-                   @RequestHeader(value = USER_ID) @Positive Long userId) {
-        objectExistsOrThrow(id);
-        userExistsOrThrow(userId);
-        return service.patch(id, fields, userId);
+    public O patch(Long objectId, Map<String, Object> fields, Long userId) {
+        throwWhenUserNotOwnObject(objectId, userId);
+        return service.patch(objectId, fields);
     }
 
-    @GetMapping
-    public List<D> findAllByUserId(@RequestHeader(value = USER_ID) @Positive Long userId) {
-        userExistsOrThrow(userId);
+    public List<O> findAllByUserId(Long userId) {
+        throwWhenUserNotFound(userId);
         return service.findAllByUserId(userId);
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable @Positive Long id,
-                       @RequestHeader(value = USER_ID) @Positive Long userId) {
-        objectExistsOrThrow(id);
-        userExistsOrThrow(userId);
-        service.delete(id, userId);
+    public void delete(Long objectId, Long userId) {
+        throwWhenUserNotOwnObject(objectId, userId);
+        service.delete(objectId, userId);
     }
 
-    private void userExistsOrThrow(Long userId) {
+    protected void throwWhenUserNotFound(Long userId) {
         if (!service.userExistsById(userId)) {
             throw new UserNotFoundException(String.format("Пользователь id = %d не найден!", userId));
         }
     }
 
-    private void objectExistsOrThrow(Long id) {
-        if (!service.objectExistsById(id)) {
-            throw new EntityNotFoundException(String.format("Объект id = %d не найден!", id));
-        }
+    protected void throwWhenUserNotOwnObject(Long objectId, Long userId) {
+        service.throwWhenUserNotOwnObject(objectId, userId);
     }
-
-    protected UserObjectService<D> getSuperService() {
-        return service;
-    }
-
-    protected abstract UserObjectService<D> getService();
 
 }
