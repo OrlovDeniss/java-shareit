@@ -39,7 +39,7 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
             "JOIN FETCH b.user " +
             "JOIN FETCH b.item " +
             "WHERE b.item.user.id = :userId")
-    List<Booking> findAllByUserIdAndUserOwnsItem(Long userId, Sort sort);
+    List<Booking> findAllByOwnerId(Long userId, Sort sort);
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.user " +
@@ -53,7 +53,7 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
             "JOIN FETCH b.item " +
             "WHERE b.start > CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereStartIsAfterCurrentTimestampAndUserOwnsItem(Long userId, Sort sort);
+    List<Booking> findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(Long userId, Sort sort);
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.user " +
@@ -67,7 +67,7 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
             "JOIN FETCH b.item " +
             "WHERE b.end < CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereEndBeforeCurrentAndUserOwnsItem(Long userId, Sort sort);
+    List<Booking> findAllByOwnerIdWhereEndBeforeCurrent(Long userId, Sort sort);
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.user " +
@@ -81,7 +81,7 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
             "JOIN FETCH b.item " +
             "WHERE CURRENT_TIMESTAMP BETWEEN b.start AND b.end " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereCurrentTimestampBetweenStartAndEndAndUserOwnsItem(Long userId, Sort sort);
+    List<Booking> findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Sort sort);
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.user " +
@@ -95,7 +95,7 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
             "JOIN FETCH b.item " +
             "WHERE b.status = :status " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findBookingsByUserIdWhereStatusAndUserOwnsItem(Long userId, Status status, Sort sort);
+    List<Booking> findBookingsByOwnerIdWhereStatus(Long userId, Status status, Sort sort);
 
     @Query(nativeQuery = true,
             value = "SELECT id, user_id bookerId, item_id itemId FROM booking " +

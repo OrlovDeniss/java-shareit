@@ -2,7 +2,6 @@ package ru.practicum.shareit.booking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.abstraction.userobject.service.AbstractUserObjectService;
@@ -12,15 +11,14 @@ import ru.practicum.shareit.booking.mapper.BookingModelMapper;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.booking.service.finder.FinderStrategyFactory;
 import ru.practicum.shareit.booking.state.State;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.ItemRepository;
 import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.booking.*;
-import ru.practicum.shareit.util.exception.general.UnsupportedStateException;
 import ru.practicum.shareit.util.exception.item.ItemNotAvailableException;
 import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
-import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 
 import java.util.List;
 
@@ -31,22 +29,26 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
 
     private final BookingRepository bookingRepository;
     private final ItemRepository itemRepository;
-    private final Sort sort = Sort.by("start").descending();
+    private final FinderStrategyFactory finderStrategyFactory;
+
 
     protected BookingServiceImpl(BookingModelMapper mapper,
                                  UserRepository userRepository,
                                  ObjectMapper objectMapper,
                                  BookingRepository bookingRepository,
-                                 ItemRepository itemRepository) {
+                                 ItemRepository itemRepository,
+                                 FinderStrategyFactory finderStrategyFactory) {
         super(mapper, userRepository, objectMapper, bookingRepository);
         this.bookingRepository = bookingRepository;
         this.itemRepository = itemRepository;
+        this.finderStrategyFactory = finderStrategyFactory;
     }
 
     @Override
     @Transactional
     public BookingDtoOut create(BookingDtoIn bookingDtoIn, Long userId) {
         throwWhenStartAfterEndOrEquals(bookingDtoIn);
+        throwWhenUserNotFound(userId);
         Item item = itemRepository.findByIdWithUser(bookingDtoIn.getItemId()).orElseThrow(ItemNotFoundException::new);
         throwWhenItemAvailableIsFalse(item);
         throwWhenUserOwnerItem(item, userId);
@@ -68,6 +70,7 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
     @Override
     @Transactional
     public BookingDtoOut patch(Long bookingId, Long userId, Boolean approved) {
+        throwWhenUserNotFound(userId);
         Booking booking = bookingRepository.findByIdWithUserAndItem(bookingId).orElseThrow(BookingNotFoundException::new);
         throwWhenBookingStatusIsApproved(booking);
         throwWhenUserNotOwnerBookingItem(booking, userId);
@@ -83,57 +86,15 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
     @Override
     @Transactional(readOnly = true)
     public List<BookingDtoOut> findAllByUserIdAndState(Long userId, State state) {
-        userExistsOrThrow(userId);
-        switch (state) {
-            case ALL:
-                return toDto(bookingRepository
-                        .findAllByUserId(userId, sort));
-            case FUTURE:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereStartIsAfterCurrentTimestamp(userId, sort));
-            case CURRENT:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(userId, sort));
-            case PAST:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereEndBeforeCurrent(userId, sort));
-            case WAITING:
-                return toDto(bookingRepository
-                        .findBookingsByUserIdWhereStatus(userId, Status.WAITING, sort));
-            case REJECTED:
-                return toDto(bookingRepository
-                        .findBookingsByUserIdWhereStatus(userId, Status.REJECTED, sort));
-            default:
-                throw new UnsupportedStateException();
-        }
+        throwWhenUserNotFound(userId);
+        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByUserId(userId));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDtoOut> findAllByUserIdAndStateAndUserOwnsItem(Long userId, State state) {
-        userExistsOrThrow(userId);
-        switch (state) {
-            case ALL:
-                return toDto(bookingRepository
-                        .findAllByUserIdAndUserOwnsItem(userId, sort));
-            case FUTURE:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereStartIsAfterCurrentTimestampAndUserOwnsItem(userId, sort));
-            case CURRENT:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereCurrentTimestampBetweenStartAndEndAndUserOwnsItem(userId, sort));
-            case PAST:
-                return toDto(bookingRepository
-                        .findAllByUserIdWhereEndBeforeCurrentAndUserOwnsItem(userId, sort));
-            case WAITING:
-                return toDto(bookingRepository
-                        .findBookingsByUserIdWhereStatusAndUserOwnsItem(userId, Status.WAITING, sort));
-            case REJECTED:
-                return toDto(bookingRepository
-                        .findBookingsByUserIdWhereStatusAndUserOwnsItem(userId, Status.REJECTED, sort));
-            default:
-                throw new UnsupportedStateException();
-        }
+    public List<BookingDtoOut> findAllByOwnerIdAndState(Long ownerId, State state) {
+        throwWhenUserNotFound(ownerId);
+        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByOwnerId(ownerId));
     }
 
     private void throwWhenUserNotOwnerBookingItem(Booking booking, Long userId) {
@@ -160,12 +121,6 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
     private void throwWhenStartAfterEndOrEquals(BookingDtoIn dtoIn) {
         if (dtoIn.getStart().isAfter(dtoIn.getEnd()) || dtoIn.getStart().equals(dtoIn.getEnd())) {
             throw new BookingTimeConstraintException();
-        }
-    }
-
-    private void userExistsOrThrow(Long userId) {
-        if (!userExistsById(userId)) {
-            throw new UserNotFoundException(String.format("User id = %d не найден.", userId));
         }
     }
 

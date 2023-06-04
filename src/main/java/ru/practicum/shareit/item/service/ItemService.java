@@ -12,7 +12,7 @@ public interface ItemService extends UserObjectService<ItemDtoIn, ItemDtoOut> {
 
     ItemDtoOut findById(Long itemId, Long userId);
 
-    List<ItemDtoOut> search(String text);
+    List<ItemDtoOut> searchByNameOrDescription(String text);
 
     CommentDtoOut createComment(Long itemId, Long userId, CommentDtoIn commentDtoIn);
 

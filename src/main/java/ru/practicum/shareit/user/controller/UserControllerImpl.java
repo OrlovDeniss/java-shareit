@@ -16,30 +16,30 @@ import java.util.Map;
 @RequestMapping("/users")
 public class UserControllerImpl implements UserController {
 
-    private final UserService service;
+    private final UserService userService;
 
     public UserDto get(Long id) {
-        return service.findById(id);
+        return userService.findById(id);
     }
 
-    public UserDto add(UserDto userDto) {
-        return service.create(userDto);
+    public UserDto post(UserDto userDto) {
+        return userService.create(userDto);
     }
 
-    public UserDto update(UserDto userDto) {
-        return service.update(userDto);
+    public UserDto put(UserDto userDto) {
+        return userService.update(userDto);
     }
 
     public UserDto patch(Long id, Map<String, Object> newFields) {
-        return service.patch(id, newFields);
+        return userService.patch(id, newFields);
     }
 
-    public List<UserDto> findAll() {
-        return service.findAll();
+    public List<UserDto> getAll() {
+        return userService.findAll();
     }
 
     public void delete(Long id) {
-        service.delete(id);
+        userService.delete(id);
     }
 
 }

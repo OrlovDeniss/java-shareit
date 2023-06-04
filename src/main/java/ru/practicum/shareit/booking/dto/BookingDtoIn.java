@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import ru.practicum.shareit.abstraction.model.Identified;
 
+import javax.validation.constraints.Future;
 import javax.validation.constraints.FutureOrPresent;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
@@ -27,7 +28,7 @@ public class BookingDtoIn implements Identified {
     private LocalDateTime start;
 
     @NotNull
-    @FutureOrPresent
+    @Future
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'hh:mm:ss")
     private LocalDateTime end;
 

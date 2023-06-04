@@ -6,15 +6,12 @@ import ru.practicum.shareit.user.model.User;
 
 import javax.persistence.*;
 import java.util.List;
-import java.util.Objects;
 
+@Data
 @Entity
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Getter
-@Setter
-@ToString
 public class Item implements UserObject {
 
     @Id
@@ -24,22 +21,14 @@ public class Item implements UserObject {
     private String description;
     private Boolean available;
 
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
 
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToMany(fetch = FetchType.LAZY)
     private List<Comment> comments;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Item item = (Item) o;
-        return Objects.equals(id, item.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
 }

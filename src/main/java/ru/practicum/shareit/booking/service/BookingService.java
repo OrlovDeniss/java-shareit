@@ -15,6 +15,6 @@ public interface BookingService extends UserObjectService<BookingDtoIn, BookingD
 
     List<BookingDtoOut> findAllByUserIdAndState(Long userId, State state);
 
-    List<BookingDtoOut> findAllByUserIdAndStateAndUserOwnsItem(Long userId, State state);
+    List<BookingDtoOut> findAllByOwnerIdAndState(Long userId, State state);
 
 }

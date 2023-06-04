@@ -56,6 +56,7 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
     @Override
     @Transactional(readOnly = true)
     public ItemDtoOut findById(Long itemId, Long userId) {
+        throwWhenUserNotFound(userId);
         Item item = itemRepository.findByIdWithUserAndComments(itemId).orElseThrow(ItemNotFoundException::new);
         ItemDtoOut itemDtoOut = toDto(item);
         boolean isOwner = Objects.equals(item.getUser().getId(), userId);
@@ -72,6 +73,7 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
     @Override
     @Transactional(readOnly = true)
     public List<ItemDtoOut> findAllByUserId(Long userId) {
+        throwWhenUserNotFound(userId);
         List<Item> items = itemRepository.findAllByUserIdWithComments(userId);
         List<BookingShort> lastBookings = bookingRepository.findLastBookingsByUserId(userId);
         List<BookingShort> nextBookings = bookingRepository.findNextBookingsByUserId(userId);
@@ -80,7 +82,7 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
 
     @Override
     @Transactional(readOnly = true)
-    public List<ItemDtoOut> search(String text) {
+    public List<ItemDtoOut> searchByNameOrDescription(String text) {
         return toDto(itemRepository
                 .findAllByNameContainsIgnoreCaseOrDescriptionContainsIgnoreCaseAndAvailableIsTrue(text, text));
     }
@@ -118,9 +120,9 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
                                                     List<BookingShort> nextBookings) {
         Map<Long, ItemDtoOut> map = new HashMap<>();
         for (Item item : items) {
-            ItemDtoOut dto = toDto(item);
-            dto.setComments(commentModelMapper.toDto(item.getComments()));
-            map.put(item.getId(), dto);
+            ItemDtoOut itemDtoOut = toDto(item);
+            itemDtoOut.setComments(commentModelMapper.toDto(item.getComments()));
+            map.put(item.getId(), itemDtoOut);
         }
         lastBookings.forEach(last -> map.get(last.getItemId()).setLastBooking(toDtoShort(last)));
         nextBookings.forEach(next -> map.get(next.getItemId()).setNextBooking(toDtoShort(next)));

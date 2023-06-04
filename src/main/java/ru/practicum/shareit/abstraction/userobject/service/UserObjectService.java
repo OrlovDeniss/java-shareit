@@ -15,7 +15,7 @@ public interface UserObjectService<I extends Identified, O> {
 
     O update(I in, Long userId);
 
-    O patch(Long id, Map<String, Object> fields);
+    O patch(Long id, Map<String, Object> fields, Long userId);
 
     void delete(Long id, Long userId);
 
