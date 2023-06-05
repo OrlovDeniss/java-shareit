@@ -1,34 +1,49 @@
 package ru.practicum.shareit.booking.mapper;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import ru.practicum.shareit.booking.dto.BookingDto;
-import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.abstraction.mapper.AbstractModelMapper;
+import ru.practicum.shareit.booking.dto.BookingDtoIn;
+import ru.practicum.shareit.booking.dto.BookingDtoOut;
+import ru.practicum.shareit.booking.dto.BookingDtoShort;
+import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingShort;
+import ru.practicum.shareit.item.mapper.ItemModelMapper;
+import ru.practicum.shareit.user.mapper.UserModelMapper;
 
 @Component
-public class BookingModelMapper extends AbstractModelMapper<BookingDto, Booking> {
+@RequiredArgsConstructor
+public class BookingModelMapper extends AbstractModelMapper<BookingDtoIn, BookingDtoOut, Booking> {
+
+    private final ItemModelMapper itemModelMapper;
+    private final UserModelMapper userModelMapper;
 
     @Override
-    public BookingDto toDto(Booking booking) {
-        return BookingDto.builder()
+    public BookingDtoOut toDto(Booking booking) {
+        return BookingDtoOut.builder()
                 .id(booking.getId())
                 .start(booking.getStart())
                 .end(booking.getEnd())
-                .item(booking.getItem())
-                .booker(booking.getUser())
+                .booker(userModelMapper.toDtoShort(booking.getUser()))
+                .item(itemModelMapper.toDtoShort(booking.getItem()))
                 .status(booking.getStatus())
                 .build();
     }
 
     @Override
-    public Booking toEntity(BookingDto bookingDto) {
+    public Booking toEntity(BookingDtoIn bookingDtoIn) {
         return Booking.builder()
-                .id(bookingDto.getId())
-                .start(bookingDto.getStart())
-                .end(bookingDto.getEnd())
-                .item(bookingDto.getItem())
-                .user(bookingDto.getBooker())
-                .status(bookingDto.getStatus())
+                .id(bookingDtoIn.getId())
+                .start(bookingDtoIn.getStart())
+                .end(bookingDtoIn.getEnd())
                 .build();
     }
+
+    public BookingDtoShort toDtoShort(BookingShort booking) {
+        return BookingDtoShort.builder()
+                .id(booking.getId())
+                .bookerId(booking.getBookerId())
+                .build();
+    }
+
 }

@@ -2,12 +2,11 @@ package ru.practicum.shareit.user.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.service.UserService;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Positive;
 import java.util.List;
 import java.util.Map;
 
@@ -15,38 +14,32 @@ import java.util.Map;
 @Validated
 @RequiredArgsConstructor
 @RequestMapping("/users")
-public class UserControllerImpl {
+public class UserControllerImpl implements UserController {
 
-    protected final UserService service;
+    private final UserService userService;
 
-    @GetMapping("{id}")
-    public UserDto get(@PathVariable @Positive Long id) {
-        return service.findById(id);
+    public UserDto get(Long id) {
+        return userService.findById(id);
     }
 
-    @PostMapping
-    public UserDto add(@Valid @RequestBody UserDto userDto) {
-        return service.create(userDto);
+    public UserDto post(UserDto userDto) {
+        return userService.create(userDto);
     }
 
-    @PutMapping
-    public UserDto update(@Valid @RequestBody UserDto userDto) {
-        return service.update(userDto);
+    public UserDto put(UserDto userDto) {
+        return userService.update(userDto);
     }
 
-    @PatchMapping("{id}")
-    public UserDto patch(@PathVariable @Positive Long id,
-                         @RequestBody Map<String, Object> newFields) {
-        return service.patch(id, newFields);
+    public UserDto patch(Long id, Map<String, Object> newFields) {
+        return userService.patch(id, newFields);
     }
 
-    @GetMapping
-    public List<UserDto> findAll() {
-        return service.findAll();
+    public List<UserDto> getAll() {
+        return userService.findAll();
     }
 
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable @Positive Long id) {
-        service.delete(id);
+    public void delete(Long id) {
+        userService.delete(id);
     }
+
 }

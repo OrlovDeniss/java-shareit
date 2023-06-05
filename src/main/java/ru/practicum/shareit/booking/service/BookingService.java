@@ -1,7 +1,20 @@
 package ru.practicum.shareit.booking.service;
 
-import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.abstraction.userobject.service.UserObjectService;
+import ru.practicum.shareit.booking.dto.BookingDtoIn;
+import ru.practicum.shareit.booking.dto.BookingDtoOut;
+import ru.practicum.shareit.booking.state.State;
 
-public interface BookingService extends UserObjectService<BookingDto> {
+import java.util.List;
+
+public interface BookingService extends UserObjectService<BookingDtoIn, BookingDtoOut> {
+
+    BookingDtoOut findById(Long bookingId, Long userId);
+
+    BookingDtoOut patch(Long bookingId, Long userId, Boolean approved);
+
+    List<BookingDtoOut> findAllByUserIdAndState(Long userId, State state);
+
+    List<BookingDtoOut> findAllByOwnerIdAndState(Long userId, State state);
+
 }

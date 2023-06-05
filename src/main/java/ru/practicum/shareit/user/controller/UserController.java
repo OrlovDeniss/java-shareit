@@ -14,17 +14,17 @@ public interface UserController {
     UserDto get(@PathVariable @Positive Long id);
 
     @PostMapping
-    UserDto add(@Valid @RequestBody UserDto userDto);
+    UserDto post(@Valid @RequestBody UserDto userDto);
 
     @PutMapping
-    UserDto update(@Valid @RequestBody UserDto userDto);
+    UserDto put(@Valid @RequestBody UserDto userDto);
 
     @PatchMapping("{id}")
     UserDto patch(@PathVariable @Positive Long id,
                   @RequestBody Map<String, Object> newFields);
 
     @GetMapping
-    List<UserDto> findAll();
+    List<UserDto> getAll();
 
     @DeleteMapping("/{id}")
     void delete(@PathVariable @Positive Long id);

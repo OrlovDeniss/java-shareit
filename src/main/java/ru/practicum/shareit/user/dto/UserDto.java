@@ -1,28 +1,30 @@
 package ru.practicum.shareit.user.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import ru.practicum.shareit.abstraction.model.Entity;
+import lombok.NoArgsConstructor;
+import ru.practicum.shareit.abstraction.model.Identified;
 
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
 
 @Data
+@Builder
 @AllArgsConstructor
-public class UserDto implements Entity {
+@NoArgsConstructor
+public class UserDto implements Identified {
 
-    @JsonProperty("id")
+    @Positive
     private Long id;
 
     @NotBlank
-    @JsonProperty("name")
     private String name;
 
     @Email
     @NotNull
-    @JsonProperty("email")
     private String email;
 
 }

@@ -1,15 +1,46 @@
 package ru.practicum.shareit.item.controller;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.abstraction.userobject.controller.UserObjectController;
+import org.springframework.web.bind.annotation.*;
+import ru.practicum.shareit.item.dto.ItemDtoIn;
+import ru.practicum.shareit.item.dto.ItemDtoOut;
+import ru.practicum.shareit.item.dto.comment.CommentDtoIn;
+import ru.practicum.shareit.item.dto.comment.CommentDtoOut;
 
+import javax.validation.Valid;
+import javax.validation.constraints.Positive;
 import java.util.List;
+import java.util.Map;
 
-public interface ItemController extends UserObjectController<ItemDto> {
+public interface ItemController {
+
+    String X_SHARER_USER_ID = "X-Sharer-User-Id";
+
+    @GetMapping("{id}")
+    ItemDtoOut get(@PathVariable("id") @Positive Long itemId,
+                   @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
+
+    @PostMapping
+    ItemDtoOut post(@Valid @RequestBody ItemDtoIn itemDtoIn,
+                    @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
+
+    @PutMapping
+    ItemDtoOut put(@Valid @RequestBody ItemDtoIn itemDtoIn,
+                   @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
+
+    @PatchMapping("{id}")
+    ItemDtoOut patch(@PathVariable("id") @Positive Long itemId,
+                     @RequestBody Map<String, Object> fields,
+                     @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
+
+    @GetMapping
+    List<ItemDtoOut> getAllByUserId(@RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
 
     @GetMapping("search")
-    List<ItemDto> search(@RequestParam String text);
+    List<ItemDtoOut> searchByNameOrDescription(@RequestParam String text);
+
+    @PostMapping("{id}/comment")
+    CommentDtoOut postComment(@PathVariable("id") Long itemId,
+                              @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
+                              @Valid @RequestBody CommentDtoIn commentDtoIn);
 
 }
