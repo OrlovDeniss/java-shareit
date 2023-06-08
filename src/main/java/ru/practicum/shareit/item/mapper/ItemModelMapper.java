@@ -8,6 +8,11 @@ import ru.practicum.shareit.item.dto.ItemDtoOut;
 import ru.practicum.shareit.item.dto.ItemDtoShort;
 import ru.practicum.shareit.item.model.Item;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 @Component
 @RequiredArgsConstructor
 public class ItemModelMapper extends AbstractModelMapper<ItemDtoIn, ItemDtoOut, Item> {
@@ -19,6 +24,7 @@ public class ItemModelMapper extends AbstractModelMapper<ItemDtoIn, ItemDtoOut, 
                 .name(item.getName())
                 .description(item.getDescription())
                 .available(item.getAvailable())
+                .requestId(Objects.isNull(item.getRequest()) ? null : item.getRequest().getId())
                 .build();
     }
 
@@ -36,7 +42,16 @@ public class ItemModelMapper extends AbstractModelMapper<ItemDtoIn, ItemDtoOut, 
         return ItemDtoShort.builder()
                 .id(item.getId())
                 .name(item.getName())
+                .description(item.getDescription())
+                .available(item.getAvailable())
+                .requestId(Objects.isNull(item.getRequest()) ? null : item.getRequest().getId())
+                .ownerId(item.getUser().getId())
                 .build();
+    }
+
+    public List<ItemDtoShort> toDtoShort(List<Item> items) {
+        return Objects.isNull(items) ?
+                Collections.emptyList() : items.stream().map(this::toDtoShort).collect(Collectors.toList());
     }
 
 }

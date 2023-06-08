@@ -1,4 +1,4 @@
-package ru.practicum.shareit.abstraction.userobject.service;
+package ru.practicum.shareit.abstraction.userobject;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.practicum.shareit.abstraction.mapper.ModelMapper;
@@ -28,7 +28,13 @@ public class AbstractUserObjectService<I extends Identified, O, E extends UserOb
     }
 
     @Override
-    public List<O> findAllByUserId(Long userId) {
+    public O findById(Long objectId, Long userId) {
+        throwWhenUserNotFound(userId);
+        return toDto(findUserObjectById(objectId));
+    }
+
+    @Override
+    public List<O> findAllByOwnerId(Long userId) {
         throwWhenUserNotFound(userId);
         return toDto(findAllUserObjectsByUserId(userId));
     }
@@ -47,6 +53,7 @@ public class AbstractUserObjectService<I extends Identified, O, E extends UserOb
 
     @Override
     public O patch(Long id, Map<String, Object> fields, Long userId) {
+        throwWhenUserNotFound(userId);
         throwWhenUserNotOwnObject(id, userId);
         return toDto(patchUserObject(id, fields));
     }
@@ -56,7 +63,5 @@ public class AbstractUserObjectService<I extends Identified, O, E extends UserOb
             throw new UserNotFoundException(String.format("User id = %d не найден.", userId));
         }
     }
-
-
 
 }

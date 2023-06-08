@@ -1,4 +1,4 @@
-package ru.practicum.shareit.abstraction.userobject.service;
+package ru.practicum.shareit.abstraction.userobject;
 
 import ru.practicum.shareit.abstraction.model.Identified;
 
@@ -9,18 +9,14 @@ public interface UserObjectService<I extends Identified, O> {
 
     O findById(Long objectId);
 
-    List<O> findAllByUserId(Long userId);
+    O findById(Long objectId, Long userId);
+
+    List<O> findAllByOwnerId(Long userId);
 
     O create(I in, Long userId);
 
     O update(I in, Long userId);
 
     O patch(Long id, Map<String, Object> fields, Long userId);
-
-    void delete(Long id, Long userId);
-
-    boolean userExistsById(Long userId);
-
-    void throwWhenUserNotOwnObject(Long objectId, Long userId);
 
 }

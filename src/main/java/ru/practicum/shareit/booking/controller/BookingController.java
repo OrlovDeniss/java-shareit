@@ -12,6 +12,8 @@ import java.util.List;
 public interface BookingController {
 
     String X_SHARER_USER_ID = "X-Sharer-User-Id";
+    String FROM = "0";
+    String SIZE = "10";
 
     @GetMapping("{id}")
     BookingDtoOut get(@PathVariable("id") @Positive Long bookingId,
@@ -31,13 +33,17 @@ public interface BookingController {
                         @RequestParam Boolean approved);
 
     @GetMapping
-    List<BookingDtoOut> getAllByUserId(@RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
+    List<BookingDtoOut> getAllByUserId(@RequestParam(defaultValue = FROM) Integer from,
+                                       @RequestParam(defaultValue = SIZE) Integer size,
+                                       @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
                                        @RequestParam(value = "state",
                                                required = false,
                                                defaultValue = "ALL") State state);
 
     @GetMapping("owner")
-    List<BookingDtoOut> getAllByOwnerId(@RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
+    List<BookingDtoOut> getAllByOwnerId(@RequestParam(defaultValue = FROM) Integer from,
+                                        @RequestParam(defaultValue = SIZE) Integer size,
+                                        @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
                                         @RequestParam(value = "state",
                                                 required = false,
                                                 defaultValue = "ALL") State state);

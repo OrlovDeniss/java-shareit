@@ -11,6 +11,4 @@ public interface UserObjectRepository<E extends UserObject> extends JpaRepositor
 
     List<E> findAllByUserId(Long userId);
 
-    void deleteByUserId(Long userId);
-
 }

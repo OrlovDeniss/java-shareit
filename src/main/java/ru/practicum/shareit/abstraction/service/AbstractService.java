@@ -3,10 +3,10 @@ package ru.practicum.shareit.abstraction.service;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import ru.practicum.shareit.abstraction.model.Identified;
-import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 import ru.practicum.shareit.abstraction.mapper.ModelMapper;
+import ru.practicum.shareit.abstraction.model.Identified;
 import ru.practicum.shareit.user.repository.UserRepository;
+import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 
 import java.util.List;
 import java.util.Map;

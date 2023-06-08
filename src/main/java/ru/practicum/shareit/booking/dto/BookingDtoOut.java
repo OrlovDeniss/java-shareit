@@ -1,9 +1,6 @@
 package ru.practicum.shareit.booking.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import ru.practicum.shareit.abstraction.model.Identified;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.item.dto.ItemDtoShort;
@@ -17,11 +14,17 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BookingDtoOut implements Identified {
 
+    @NonNull
     private Long id;
+    @NonNull
     private LocalDateTime start;
+    @NonNull
     private LocalDateTime end;
+    @NonNull
     private ItemDtoShort item;
+    @NonNull
     private UserDtoShort booker;
+    @NonNull
     private Status status;
 
 }

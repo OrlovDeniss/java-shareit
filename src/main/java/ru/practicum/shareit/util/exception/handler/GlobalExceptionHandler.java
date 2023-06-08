@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.practicum.shareit.util.exception.booking.*;
 import ru.practicum.shareit.util.exception.comment.CommentWithoutBookingException;
 import ru.practicum.shareit.util.exception.general.EntityNotFoundException;
+import ru.practicum.shareit.util.exception.general.IncorrectRequestParamException;
 import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 import ru.practicum.shareit.util.exception.general.UnsupportedStateException;
 import ru.practicum.shareit.util.exception.item.ItemNotAvailableException;
@@ -41,6 +42,7 @@ public class GlobalExceptionHandler {
             BookingAlreadyExistsException.class,
             BookingTimeConstraintException.class,
             CommentWithoutBookingException.class,
+            IncorrectRequestParamException.class,
             ItemNotAvailableException.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)

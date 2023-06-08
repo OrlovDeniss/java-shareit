@@ -2,6 +2,7 @@ package ru.practicum.shareit.item.model;
 
 import lombok.*;
 import ru.practicum.shareit.abstraction.model.UserObject;
+import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.user.model.User;
 
 import javax.persistence.*;
@@ -30,5 +31,10 @@ public class Item implements UserObject {
     @EqualsAndHashCode.Exclude
     @OneToMany(fetch = FetchType.LAZY)
     private List<Comment> comments;
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @ManyToOne(fetch = FetchType.EAGER)
+    private Request request;
 
 }

@@ -1,6 +1,8 @@
 package ru.practicum.shareit.booking.repository;
 
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import ru.practicum.shareit.abstraction.userobject.repository.UserObjectRepository;
 import ru.practicum.shareit.booking.model.Booking;
@@ -29,73 +31,63 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
 
     Optional<Booking> findBookingByUserIdAndItemIdAndStatus(Long userId, Long itemId, Status status);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.user.id = :userId ")
-    List<Booking> findAllByUserId(Long userId, Sort sort);
+    Page<Booking> findAllByUserId(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.item.user.id = :userId")
-    List<Booking> findAllByOwnerId(Long userId, Sort sort);
+    Page<Booking> findAllByOwnerId(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.start > CURRENT_TIMESTAMP " +
             "AND b.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereStartIsAfterCurrentTimestamp(Long userId, Sort sort);
+    Page<Booking> findAllByUserIdWhereStartIsAfterCurrentTimestamp(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.start > CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(Long userId, Sort sort);
+    Page<Booking> findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.end < CURRENT_TIMESTAMP " +
             "AND b.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereEndBeforeCurrent(Long userId, Sort sort);
+    Page<Booking> findAllByUserIdWhereEndBeforeCurrent(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.end < CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByOwnerIdWhereEndBeforeCurrent(Long userId, Sort sort);
+    Page<Booking> findAllByOwnerIdWhereEndBeforeCurrent(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE CURRENT_TIMESTAMP BETWEEN b.start AND b.end " +
             "AND b.user.id = :userId ")
-    List<Booking> findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Sort sort);
+    Page<Booking> findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE CURRENT_TIMESTAMP BETWEEN b.start AND b.end " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Sort sort);
+    Page<Booking> findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.status = :status " +
             "AND b.user.id = :userId ")
-    List<Booking> findBookingsByUserIdWhereStatus(Long userId, Status status, Sort sort);
+    Page<Booking> findBookingsByUserIdWhereStatus(Long userId, Status status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.user " +
-            "JOIN FETCH b.item " +
             "WHERE b.status = :status " +
             "AND b.item.user.id = :userId ")
-    List<Booking> findBookingsByOwnerIdWhereStatus(Long userId, Status status, Sort sort);
+    Page<Booking> findBookingsByOwnerIdWhereStatus(Long userId, Status status, Pageable pageable);
 
     @Query(nativeQuery = true,
             value = "SELECT id, user_id bookerId, item_id itemId FROM booking " +

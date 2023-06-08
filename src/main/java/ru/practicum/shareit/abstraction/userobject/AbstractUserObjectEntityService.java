@@ -1,4 +1,4 @@
-package ru.practicum.shareit.abstraction.userobject.service;
+package ru.practicum.shareit.abstraction.userobject;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -7,11 +7,11 @@ import ru.practicum.shareit.abstraction.model.Identified;
 import ru.practicum.shareit.abstraction.model.UserObject;
 import ru.practicum.shareit.abstraction.service.AbstractService;
 import ru.practicum.shareit.abstraction.userobject.repository.UserObjectRepository;
+import ru.practicum.shareit.user.model.User;
+import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.general.EntityNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserOwnsObjectException;
-import ru.practicum.shareit.user.model.User;
-import ru.practicum.shareit.user.repository.UserRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -30,7 +30,7 @@ public abstract class AbstractUserObjectEntityService<I extends Identified, O, E
         this.objectRepository = objectRepository;
     }
 
-     public E findUserObjectById(Long objectId) {
+    public E findUserObjectById(Long objectId) {
         E e = objectRepository.findById(objectId).orElseThrow(EntityNotFoundException::new);
         log.info("findObjectById: {}.", e);
         return e;
@@ -55,17 +55,12 @@ public abstract class AbstractUserObjectEntityService<I extends Identified, O, E
     }
 
     public E patchUserObject(Long objectId,
-                      Map<String, Object> newFields) {
+                             Map<String, Object> newFields) {
         E oldE = objectRepository.findById(objectId).orElseThrow(EntityNotFoundException::new);
         E newE = tryUpdateFields(oldE, newFields);
         E updated = objectRepository.save(newE);
         log.info("patchUserObject: {}.", updated);
         return updated;
-    }
-
-    public void delete(Long objectId, Long userId) {
-        objectRepository.deleteByUserId(userId);
-        log.info("delete: id = {}.", objectId);
     }
 
     public boolean userExistsById(Long userId) {

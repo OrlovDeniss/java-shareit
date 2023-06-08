@@ -1,9 +1,10 @@
 package ru.practicum.shareit.item.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.shareit.abstraction.userobject.service.AbstractUserObjectService;
+import ru.practicum.shareit.abstraction.userobject.AbstractUserObjectService;
 import ru.practicum.shareit.booking.dto.BookingDtoShort;
 import ru.practicum.shareit.booking.mapper.BookingModelMapper;
 import ru.practicum.shareit.booking.model.BookingShort;
@@ -18,10 +19,13 @@ import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.CommentRepository;
 import ru.practicum.shareit.item.repository.ItemRepository;
+import ru.practicum.shareit.request.model.Request;
+import ru.practicum.shareit.request.repository.RequestRepository;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.comment.CommentWithoutBookingException;
 import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
+import ru.practicum.shareit.util.exception.request.RequestNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserOwnsObjectException;
 
@@ -34,6 +38,7 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
     private final ItemRepository itemRepository;
     private final CommentRepository commentRepository;
     private final BookingRepository bookingRepository;
+    private final RequestRepository requestRepository;
     private final CommentModelMapper commentModelMapper;
     private final BookingModelMapper bookingModelMapper;
 
@@ -43,14 +48,25 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
                               ItemRepository itemRepository,
                               CommentRepository commentRepository,
                               BookingRepository bookingRepository,
+                              RequestRepository requestRepository,
                               CommentModelMapper commentModelMapper,
                               BookingModelMapper bookingModelMapper) {
         super(mapper, userRepository, objectMapper, itemRepository);
         this.itemRepository = itemRepository;
         this.commentRepository = commentRepository;
         this.bookingRepository = bookingRepository;
+        this.requestRepository = requestRepository;
         this.commentModelMapper = commentModelMapper;
         this.bookingModelMapper = bookingModelMapper;
+    }
+
+    @Override
+    @Transactional
+    public ItemDtoOut create(ItemDtoIn in, Long userId) {
+        throwWhenUserNotFound(userId);
+        Item itemIn = toEntity(in);
+        mergeRequestAndItemWhenRequestIdNotNull(in.getRequestId(), itemIn);
+        return toDto(createUserObject(itemIn, userId));
     }
 
     @Override
@@ -72,9 +88,9 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
 
     @Override
     @Transactional(readOnly = true)
-    public List<ItemDtoOut> findAllByUserId(Long userId) {
+    public List<ItemDtoOut> findAllByUserId(Integer from, Integer size, Long userId) {
         throwWhenUserNotFound(userId);
-        List<Item> items = itemRepository.findAllByUserIdWithComments(userId);
+        List<Item> items = itemRepository.findAllByUserIdWithComments(userId, PageRequest.of(from / size, size)).toList();
         List<BookingShort> lastBookings = bookingRepository.findLastBookingsByUserId(userId);
         List<BookingShort> nextBookings = bookingRepository.findNextBookingsByUserId(userId);
         return mergeToItemDtoOut(items, lastBookings, nextBookings);
@@ -82,9 +98,12 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
 
     @Override
     @Transactional(readOnly = true)
-    public List<ItemDtoOut> searchByNameOrDescription(String text) {
-        return toDto(itemRepository
-                .findAllByNameContainsIgnoreCaseOrDescriptionContainsIgnoreCaseAndAvailableIsTrue(text, text));
+    public List<ItemDtoOut> searchByNameOrDescription(Integer from, Integer size, String text) {
+            return toDto(itemRepository.findAllByNameContainsIgnoreCaseOrDescriptionContainsIgnoreCaseAndAvailableIsTrue(
+                        text,
+                        text,
+                        PageRequest.of(from / size, size))
+                .toList());
     }
 
     @Override
@@ -135,6 +154,18 @@ public class ItemServiceImpl extends AbstractUserObjectService<ItemDtoIn, ItemDt
 
     private BookingDtoShort toDtoShort(BookingShort bookingShort) {
         return bookingModelMapper.toDtoShort(bookingShort);
+    }
+
+    private void mergeRequestAndItemWhenRequestIdNotNull(Long requestId, Item item) {
+        if (Objects.nonNull(requestId)) {
+            Request request = requestRepository.findByIdWithItems(requestId).orElseThrow(RequestNotFoundException::new);
+            item.setRequest(request);
+            if (Objects.isNull(request.getItems())) {
+                request.setItems(List.of(item));
+            } else {
+                request.getItems().add(item);
+            }
+        }
     }
 
 }

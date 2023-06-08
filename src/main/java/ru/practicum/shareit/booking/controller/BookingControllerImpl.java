@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.practicum.shareit.abstraction.controller.AbstractController;
 import ru.practicum.shareit.booking.dto.BookingDtoIn;
 import ru.practicum.shareit.booking.dto.BookingDtoOut;
 import ru.practicum.shareit.booking.service.BookingService;
@@ -15,7 +16,7 @@ import java.util.List;
 @Validated
 @RequiredArgsConstructor
 @RequestMapping(path = "/bookings")
-public class BookingControllerImpl implements BookingController {
+public class BookingControllerImpl extends AbstractController implements BookingController {
 
     private final BookingService bookingService;
 
@@ -40,13 +41,23 @@ public class BookingControllerImpl implements BookingController {
     }
 
     @Override
-    public List<BookingDtoOut> getAllByUserId(Long userId, State state) {
-        return bookingService.findAllByUserIdAndState(userId, state);
+    public List<BookingDtoOut> getAllByUserId(Integer from,
+                                              Integer size,
+                                              Long userId,
+                                              State state) {
+        throwWhenFromLessThenZero(from);
+        throwWhenSizeLessThanOne(size);
+        return bookingService.findAllByUserIdAndState(from, size, userId, state);
     }
 
     @Override
-    public List<BookingDtoOut> getAllByOwnerId(Long userId, State state) {
-        return bookingService.findAllByOwnerIdAndState(userId, state);
+    public List<BookingDtoOut> getAllByOwnerId(Integer from,
+                                               Integer size,
+                                               Long userId,
+                                               State state) {
+        throwWhenFromLessThenZero(from);
+        throwWhenSizeLessThanOne(size);
+        return bookingService.findAllByOwnerIdAndState(from, size, userId, state);
     }
 
 }

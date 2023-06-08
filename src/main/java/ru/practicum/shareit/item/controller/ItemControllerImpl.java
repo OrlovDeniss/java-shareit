@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.practicum.shareit.abstraction.controller.AbstractController;
 import ru.practicum.shareit.item.dto.ItemDtoIn;
 import ru.practicum.shareit.item.dto.ItemDtoOut;
 import ru.practicum.shareit.item.dto.comment.CommentDtoIn;
@@ -18,7 +19,7 @@ import java.util.Map;
 @Validated
 @RequiredArgsConstructor
 @RequestMapping("/items")
-public class ItemControllerImpl implements ItemController {
+public class ItemControllerImpl extends AbstractController implements ItemController {
 
     private final ItemService itemService;
 
@@ -43,16 +44,18 @@ public class ItemControllerImpl implements ItemController {
     }
 
     @Override
-    public List<ItemDtoOut> getAllByUserId(Long userId) {
-        return itemService.findAllByUserId(userId);
+    public List<ItemDtoOut> getAllByUserId(Integer from, Integer size, Long userId) {
+        throwWhenFromLessThenZero(from);
+        throwWhenSizeLessThanOne(size);
+        return itemService.findAllByUserId(from, size, userId);
     }
 
     @Override
-    public List<ItemDtoOut> searchByNameOrDescription(String text) {
+    public List<ItemDtoOut> searchByNameOrDescription(Integer from, Integer size, String text) {
         if (text.isBlank()) {
             return Collections.emptyList();
         }
-        return itemService.searchByNameOrDescription(text);
+        return itemService.searchByNameOrDescription(from, size, text);
     }
 
     @Override

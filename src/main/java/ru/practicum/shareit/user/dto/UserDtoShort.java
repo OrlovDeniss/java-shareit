@@ -1,9 +1,6 @@
 package ru.practicum.shareit.user.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import ru.practicum.shareit.abstraction.model.Identified;
 
 @Data
@@ -12,6 +9,7 @@ import ru.practicum.shareit.abstraction.model.Identified;
 @NoArgsConstructor
 public class UserDtoShort implements Identified {
 
+    @NonNull
     private Long id;
 
 }

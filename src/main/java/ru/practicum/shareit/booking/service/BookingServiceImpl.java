@@ -2,9 +2,12 @@ package ru.practicum.shareit.booking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.shareit.abstraction.userobject.service.AbstractUserObjectService;
+import ru.practicum.shareit.abstraction.userobject.AbstractUserObjectService;
 import ru.practicum.shareit.booking.dto.BookingDtoIn;
 import ru.practicum.shareit.booking.dto.BookingDtoOut;
 import ru.practicum.shareit.booking.mapper.BookingModelMapper;
@@ -30,6 +33,8 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
     private final BookingRepository bookingRepository;
     private final ItemRepository itemRepository;
     private final FinderStrategyFactory finderStrategyFactory;
+
+    private final Sort sort = Sort.by("start").descending();
 
 
     protected BookingServiceImpl(BookingModelMapper mapper,
@@ -85,16 +90,18 @@ public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, 
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDtoOut> findAllByUserIdAndState(Long userId, State state) {
+    public List<BookingDtoOut> findAllByUserIdAndState(Integer from, Integer size, Long userId, State state) {
         throwWhenUserNotFound(userId);
-        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByUserId(userId));
+        Pageable sortedByStartDesc = PageRequest.of(from / size, size, sort);
+        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByUserId(userId, sortedByStartDesc));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDtoOut> findAllByOwnerIdAndState(Long ownerId, State state) {
+    public List<BookingDtoOut> findAllByOwnerIdAndState(Integer from, Integer size, Long ownerId, State state) {
         throwWhenUserNotFound(ownerId);
-        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByOwnerId(ownerId));
+        Pageable sortedByStartDesc = PageRequest.of(from / size, size, sort);
+        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByOwnerId(ownerId, sortedByStartDesc));
     }
 
     private void throwWhenUserNotOwnerBookingItem(Booking booking, Long userId) {

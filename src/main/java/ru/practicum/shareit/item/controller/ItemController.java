@@ -14,6 +14,8 @@ import java.util.Map;
 public interface ItemController {
 
     String X_SHARER_USER_ID = "X-Sharer-User-Id";
+    String FROM_DEFAULT = "0";
+    String SIZE_DEFAULT = "10";
 
     @GetMapping("{id}")
     ItemDtoOut get(@PathVariable("id") @Positive Long itemId,
@@ -33,10 +35,14 @@ public interface ItemController {
                      @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
 
     @GetMapping
-    List<ItemDtoOut> getAllByUserId(@RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
+    List<ItemDtoOut> getAllByUserId(@RequestParam(defaultValue = FROM_DEFAULT) Integer from,
+                                    @RequestParam(defaultValue = SIZE_DEFAULT) Integer size,
+                                    @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
 
     @GetMapping("search")
-    List<ItemDtoOut> searchByNameOrDescription(@RequestParam String text);
+    List<ItemDtoOut> searchByNameOrDescription(@RequestParam(defaultValue = FROM_DEFAULT) Integer from,
+                                               @RequestParam(defaultValue = SIZE_DEFAULT) Integer size,
+                                               @RequestParam String text);
 
     @PostMapping("{id}/comment")
     CommentDtoOut postComment(@PathVariable("id") Long itemId,
