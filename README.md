@@ -68,7 +68,7 @@ git clone https://github.com/OrlovDeniss/java-shareit.git
 ```
 2. Перейдите в каталог проекта: 
 ```Bash
-cd shereit
+cd java-shareit
 ```
 3. Скомпилируйте исходные файлы:
 ```Bash
