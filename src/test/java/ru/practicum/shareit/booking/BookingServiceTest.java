@@ -1,24 +1,24 @@
 package ru.practicum.shareit.booking;
 
+import org.jeasy.random.EasyRandom;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 import ru.practicum.shareit.booking.dto.BookingDtoIn;
 import ru.practicum.shareit.booking.dto.BookingDtoOut;
+import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.booking.repository.BookingRepository;
 import ru.practicum.shareit.booking.service.BookingServiceImpl;
+import ru.practicum.shareit.booking.service.finder.*;
 import ru.practicum.shareit.booking.state.State;
-import ru.practicum.shareit.item.dto.ItemDtoShort;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.ItemRepository;
-import ru.practicum.shareit.user.dto.UserDtoShort;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.booking.*;
@@ -26,549 +26,804 @@ import ru.practicum.shareit.util.exception.general.UnsupportedStateException;
 import ru.practicum.shareit.util.exception.item.ItemNotAvailableException;
 import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
+import ru.practicum.shareit.util.pagerequest.PageRequester;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 class BookingServiceTest {
 
-    @MockBean
-    ItemRepository itemRepository;
-    @MockBean
-    BookingRepository bookingRepository;
-    @MockBean
-    UserRepository userRepository;
-    @Autowired
-    BookingServiceImpl bookingService;
-    @Captor
-    ArgumentCaptor<Booking> bookingCaptor;
+    private BookingServiceImpl bookingService;
 
-    private static final LocalDateTime START = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
-    private static final LocalDateTime END = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
+    private final EasyRandom generator = new EasyRandom();
 
-    final BookingDtoIn bookingDtoIn = BookingDtoIn.builder()
-            .id(1L)
-            .start(START)
-            .end(END)
-            .itemId(1L)
-            .build();
+    private final int from = 0;
+    private final int size = 10;
 
-    final User user = User.builder()
-            .id(1L)
-            .name("user1")
-            .email("user1@one.ru")
-            .build();
-
-    final Item item = Item.builder()
-            .id(1L)
-            .name("item1")
-            .description("description1")
-            .available(true)
-            .user(user)
-            .build();
-
-    final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
-            .id(1L)
-            .name("item1")
-            .description("description1")
-            .available(true)
-            .ownerId(1L)
-            .build();
-
-    final Booking booking = Booking.builder()
-            .id(1L)
-            .start(START)
-            .end(END)
-            .item(item)
-            .user(user)
-            .status(Status.WAITING)
-            .build();
-
-    final BookingDtoOut referenceBookingDtoOut = BookingDtoOut.builder()
-            .id(1L)
-            .start(START)
-            .end(END)
-            .item(itemDtoShort)
-            .booker(new UserDtoShort(1L))
-            .status(Status.WAITING)
-            .build();
+    @BeforeEach
+    void setUp() {
+        bookingService = Mockito.mock(BookingServiceImpl.class, CALLS_REAL_METHODS);
+    }
 
     @Test
-    void create_whenStartAfterEndOrEquals_throwBookingTimeConstraintException() {
-        bookingDtoIn.setEnd(LocalDateTime.MIN);
-
-        assertThrows(BookingTimeConstraintException.class,
-                () -> bookingService.create(bookingDtoIn, 1L));
-
+    void create_whenStartAfterEndOrEquals_thenThrowBookingTimeConstraintException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MIN);
+        assertThrows(BookingStartEndTimeException.class,
+                () -> bookingService.create(in, generator.nextLong()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
-    void create_whenUserNotFound_throwUserNotFoundException() {
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(false);
-
-        assertThrows(UserNotFoundException.class,
-                () -> bookingService.create(bookingDtoIn, 1L));
-
-        verify(bookingRepository, never())
-                .save(any(Booking.class));
-    }
-
-    @Test
-    void create_whenItemNotFound_throwItemNotFoundException() {
-        when(userRepository.existsById(anyLong()))
+    void create_whenItemNotAvailable_thenThrowItemNotAvailableException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(itemRepository.existsByIdAndAvailableIsFalse(anyLong()))
                 .thenReturn(true);
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.empty());
-
-        assertThrows(ItemNotFoundException.class,
-                () -> bookingService.create(bookingDtoIn, 1L));
-
-        verify(bookingRepository, never())
-                .save(any(Booking.class));
-    }
-
-    @Test
-    void create_whenItemNotAvailable_throwItemNotAvailableException() {
-        item.setAvailable(false);
-
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(true);
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.of(item));
-
         assertThrows(ItemNotAvailableException.class,
-                () -> bookingService.create(bookingDtoIn, 1L));
-
+                () -> bookingService.create(in, generator.nextLong()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
-    void create_whenUserOwnerItem_throwBookingOwnerItemException() {
-        when(userRepository.existsById(anyLong()))
+    void create_whenUserOwnItem_thenThrowBookingOwnerItemException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
                 .thenReturn(true);
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.ofNullable(item));
-
-        assertThrows(BookingOwnerItemException.class,
-                () -> bookingService.create(bookingDtoIn, 1L));
-
+        assertThrows(BookingItemOwnerException.class,
+                () -> bookingService.create(in, generator.nextLong()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
-    void create_whenBookingAlreadyExists_throwBookingAlreadyExistsException() {
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(true);
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.ofNullable(item));
-        when(bookingRepository.findBookingByUserIdAndItemIdAndStatus(anyLong(), anyLong(), any(Status.class)))
-                .thenReturn(Optional.ofNullable(booking));
+    void create_whenUserNotFound_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(itemRepository.existsByIdAndAvailableIsFalse(anyLong()))
+                .thenReturn(false);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
+        assertThrows(UserNotFoundException.class,
+                () -> bookingService.create(in, generator.nextLong()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
 
-        assertThrows(BookingAlreadyExistsException.class,
-                () -> bookingService.create(bookingDtoIn, 2L));
-
+    @Test
+    void create_whenItemNotFound_thenThrowItemNotFoundException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        User user = generator.nextObject(User.class);
+        when(itemRepository.existsByIdAndAvailableIsFalse(anyLong()))
+                .thenReturn(false);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.of(user));
+        when(itemRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
+        assertThrows(ItemNotFoundException.class,
+                () -> bookingService.create(in, user.getId()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
     void create_whenIsCorrectRequest_thenReturnBookingDtoOut() {
-        Long userId = 2L;
-
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(true);
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        User user = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        when(itemRepository.existsByIdAndAvailableIsFalse(anyLong()))
+                .thenReturn(false);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
         when(userRepository.findById(anyLong()))
                 .thenReturn(Optional.ofNullable(user));
-        when(itemRepository.findByIdWithUser(anyLong()))
+        when(itemRepository.findById(anyLong()))
                 .thenReturn(Optional.ofNullable(item));
-        when(bookingRepository.findBookingByUserIdAndItemIdAndStatus(anyLong(), anyLong(), any(Status.class)))
-                .thenReturn(Optional.empty());
         when(bookingRepository.save(any(Booking.class)))
-                .thenReturn(booking);
+                .then(returnsFirstArg());
+        BookingDtoOut created = bookingService.create(in, user.getId());
+        assertEquals(in.getId(), created.getId());
+        assertEquals(in.getStart(), created.getStart());
+        assertEquals(in.getEnd(), created.getEnd());
+        assertEquals(item.getId(), created.getItem().getId());
+        assertEquals(item.getName(), created.getItem().getName());
+        assertEquals(item.getDescription(), created.getItem().getDescription());
+        assertEquals(item.getAvailable(), created.getItem().isAvailable());
+        assertNotNull(created.getItem().getRequestId());
+        assertEquals(item.getUser().getId(), created.getItem().getOwnerId());
+        assertEquals(user.getId(), created.getUser().getId());
+        assertEquals(Status.WAITING, created.getStatus());
+        verify(bookingRepository, times(1))
+                .save(any(Booking.class));
+    }
 
-        BookingDtoOut bookingDtoOut = bookingService.create(bookingDtoIn, userId);
-        assertEquals(bookingDtoOut, referenceBookingDtoOut);
+    @Test
+    void update_whenStartAfterEnd_thenThrowBookingTimeConstraintException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MIN);
+        assertThrows(BookingStartEndTimeException.class,
+                () -> bookingService.create(in, generator.nextLong()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
 
-        verify(bookingRepository)
-                .save(bookingCaptor.capture());
-        Booking bookingCaptorValue = bookingCaptor.getValue();
-        assertEquals(bookingCaptorValue, booking);
+    @Test
+    void update_whenUserNotBooker_thenThrowBookingAccessException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(bookingRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        assertThrows(BookingUpdateAccessException.class,
+                () -> bookingService.update(in, generator.nextLong()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
+
+    @Test
+    void update_whenUserNotFound_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(bookingRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
+        assertThrows(UserNotFoundException.class,
+                () -> bookingService.update(in, generator.nextLong()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
+
+    @Test
+    void update_whenItemNotFound_thenThrowItemNotFoundException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        User user = generator.nextObject(User.class);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        when(bookingRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.of(user));
+        when(itemRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
+        assertThrows(ItemNotFoundException.class,
+                () -> bookingService.update(in, generator.nextLong()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
+
+    @Test
+    void update_whenCorrect_thenReturnBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(bookingService, "itemRepository", itemRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        User user = generator.nextObject(User.class);
+        BookingDtoIn in = generator.nextObject(BookingDtoIn.class);
+        in.setEnd(LocalDateTime.MAX);
+        Item item = generator.nextObject(Item.class);
+        when(bookingRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.of(user));
+        when(itemRepository.findById(anyLong()))
+                .thenReturn(Optional.of(item));
+        when(bookingRepository.save(any(Booking.class)))
+                .then(returnsFirstArg());
+        BookingDtoOut updated = bookingService.update(in, generator.nextLong());
+        assertEquals(in.getId(), updated.getId());
+        assertEquals(in.getStart(), updated.getStart());
+        assertEquals(in.getEnd(), updated.getEnd());
+        assertNotNull(updated.getItem());
+        assertNotNull(updated.getUser());
+        assertEquals(Status.WAITING, updated.getStatus());
+        verify(bookingRepository, times(1))
+                .save(any(Booking.class));
     }
 
     @Test
     void findById_whenUserNotOwnBookingItemAndNotBooker_throwBookingAccessException() {
-        Long bookingId = 1L;
-        Long userId = 2L;
-
-        when(bookingRepository.findByIdWithUserAndItem(anyLong()))
-                .thenReturn(Optional.ofNullable(booking));
-
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        when(bookingRepository.existsByBookingIdWithUserIdOrItemUserId(anyLong(), anyLong()))
+                .thenReturn(false);
         assertThrows(BookingAccessException.class,
-                () -> bookingService.findById(bookingId, userId));
+                () -> bookingService.findById(generator.nextLong(), generator.nextLong()));
+        verify(bookingRepository, never())
+                .findByIdWithUserAndItem(anyLong());
     }
 
     @Test
     void findById_whenUserOwnBookingItemOrBooker_thenReturnBookingDtoOut() {
-        Long bookingId = 1L;
-        Long userId = 1L;
-
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        Booking booking = generator.nextObject(Booking.class);
+        when(bookingRepository.existsByBookingIdWithUserIdOrItemUserId(anyLong(), anyLong()))
+                .thenReturn(true);
         when(bookingRepository.findByIdWithUserAndItem(anyLong()))
                 .thenReturn(Optional.ofNullable(booking));
-
-        BookingDtoOut bookingDtoOut = bookingService.findById(bookingId, userId);
-        assertEquals(bookingDtoOut, referenceBookingDtoOut);
+        BookingDtoOut found = bookingService.findById(generator.nextLong(), generator.nextLong());
+        assertNotNull(found.getId());
+        assertNotNull(found.getStart());
+        assertNotNull(found.getEnd());
+        assertNotNull(found.getItem());
+        assertNotNull(found.getUser());
+        assertNotNull(found.getStatus());
+        verify(bookingRepository, times(1))
+                .findByIdWithUserAndItem(anyLong());
     }
 
     @Test
-    void patch_whenUserNotFound_throwUserNotFoundException() {
-        Long bookingId = 1L;
-        Long userId = 1L;
-        Boolean approved = true;
-
-        when(userRepository.existsById(anyLong()))
+    void patch_whenPatchNotItemOwner_thenThrowBookingStatusPatchException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        when(bookingRepository.existsByIdAndItemUserId(anyLong(), anyLong()))
                 .thenReturn(false);
-
-        assertThrows(UserNotFoundException.class,
-                () -> bookingService.patch(bookingId, userId, approved));
-
+        assertThrows(BookingStatusPatchException.class,
+                () -> bookingService.patch(generator.nextLong(), generator.nextLong(), generator.nextBoolean()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
-    void patch_whenBookingNotFound_throwBookingNotFoundException() {
-        Long bookingId = 1L;
-        Long userId = 1L;
-        Boolean approved = true;
-
-        when(userRepository.existsById(anyLong()))
+    void patch_whenBookingStatusIsNotWaiting_thenThrowBookingPatchConstraintException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        when(bookingRepository.existsByIdAndItemUserId(anyLong(), anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findByIdWithUserAndItem(bookingId))
+        when(bookingRepository.existsByIdAndStatus(anyLong(), eq(Status.WAITING)))
+                .thenReturn(false);
+        assertThrows(BookingPatchConstraintException.class,
+                () -> bookingService.patch(generator.nextLong(), generator.nextLong(), generator.nextBoolean()));
+        verify(bookingRepository, never())
+                .save(any(Booking.class));
+    }
+
+    @Test
+    void patch_whenBookingNotFound_thenThrowBookingNotFoundException() {
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        when(bookingRepository.existsByIdAndItemUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(bookingRepository.existsByIdAndStatus(anyLong(), eq(Status.WAITING)))
+                .thenReturn(true);
+        when(bookingRepository.findByIdWithUserAndItem(anyLong()))
                 .thenReturn(Optional.empty());
-
         assertThrows(BookingNotFoundException.class,
-                () -> bookingService.patch(bookingId, userId, approved));
-
+                () -> bookingService.patch(generator.nextLong(), generator.nextLong(), generator.nextBoolean()));
         verify(bookingRepository, never())
                 .save(any(Booking.class));
     }
 
     @Test
-    void patch_whenBookingStatusIsApproved_throwBookingAlreadyApprovedException() {
-        Long bookingId = 1L;
-        Long userId = 1L;
-        Boolean approved = true;
-        booking.setStatus(Status.APPROVED);
-
-        when(userRepository.existsById(anyLong()))
+    void patch_whenCorrectAndApprovedTrue_thenReturnBookingDtoOutWithStatusApproved() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        Booking booking = generator.nextObject(Booking.class);
+        when(bookingRepository.existsByIdAndItemUserId(anyLong(), anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findByIdWithUserAndItem(anyLong()))
-                .thenReturn(Optional.of(booking));
-
-        assertThrows(BookingAlreadyApprovedException.class,
-                () -> bookingService.patch(bookingId, userId, approved));
-
-        verify(bookingRepository, never())
-                .save(any(Booking.class));
-    }
-
-    @Test
-    void patch_whenUserNotOwnerBookingItem_throwBookingAccessException() {
-        Long bookingId = 1L;
-        Long userId = 2L;
-        Boolean approved = true;
-
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(true);
-        when(bookingRepository.findByIdWithUserAndItem(anyLong()))
-                .thenReturn(Optional.of(booking));
-
-        assertThrows(BookingAccessException.class,
-                () -> bookingService.patch(bookingId, userId, approved));
-
-        verify(bookingRepository, never())
-                .save(any(Booking.class));
-    }
-
-    @Test
-    void patch_whenCorrect_returnBookingDtoOut() {
-        Long bookingId = 1L;
-        Long userId = 1L;
-        Boolean approved = true;
-        referenceBookingDtoOut.setStatus(Status.APPROVED);
-
-        when(userRepository.existsById(anyLong()))
+        when(bookingRepository.existsByIdAndStatus(anyLong(), eq(Status.WAITING)))
                 .thenReturn(true);
         when(bookingRepository.findByIdWithUserAndItem(anyLong()))
                 .thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(Booking.class)))
                 .then(returnsFirstArg());
+        BookingDtoOut patched = bookingService.patch(booking.getId(), generator.nextLong(), true);
+        assertEquals(booking.getId(), patched.getId());
+        assertEquals(booking.getStart(), patched.getStart());
+        assertEquals(booking.getEnd(), patched.getEnd());
+        assertEquals(booking.getItem().getId(), patched.getItem().getId());
+        assertEquals(booking.getItem().getName(), patched.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), patched.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), patched.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), patched.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), patched.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), patched.getUser().getId());
+        assertEquals(Status.APPROVED, patched.getStatus());
+        verify(bookingRepository, times(1))
+                .save(any(Booking.class));
+    }
 
-        BookingDtoOut bookingDtoOut = bookingService.patch(bookingId, userId, approved);
-        assertEquals(bookingDtoOut, referenceBookingDtoOut);
-
+    @Test
+    void patch_whenCorrectAndApprovedFalse_thenReturnBookingDtoOutWithStatusRejected() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        Booking booking = generator.nextObject(Booking.class);
+        when(bookingRepository.existsByIdAndItemUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(bookingRepository.existsByIdAndStatus(anyLong(), eq(Status.WAITING)))
+                .thenReturn(true);
+        when(bookingRepository.findByIdWithUserAndItem(anyLong()))
+                .thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class)))
+                .then(returnsFirstArg());
+        BookingDtoOut patched = bookingService.patch(booking.getId(), generator.nextLong(), false);
+        assertEquals(booking.getId(), patched.getId());
+        assertEquals(booking.getStart(), patched.getStart());
+        assertEquals(booking.getEnd(), patched.getEnd());
+        assertEquals(booking.getItem().getId(), patched.getItem().getId());
+        assertEquals(booking.getItem().getName(), patched.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), patched.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), patched.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), patched.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), patched.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), patched.getUser().getId());
+        assertEquals(Status.REJECTED, patched.getStatus());
         verify(bookingRepository, times(1))
                 .save(any(Booking.class));
     }
 
     @Test
     void findAllByUserIdAndState_whenUserNotFound_throwUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
         assertThrows(UserNotFoundException.class,
-                () -> bookingService.findAllByUserIdAndState(1, 1, 1L, State.ALL));
+                () -> bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.ALL));
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStateAll_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.ALL;
-
+    void findAllByUserIdAndState_whenStateAll_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("all", new All(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByUserId(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllByUserId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.ALL);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStateFuture_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.FUTURE;
-
+    void findAllByUserIdAndState_whenStateFuture_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("future", new Future(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByUserIdWhereStartIsAfterCurrentTimestamp(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllFutureBookingsByUserId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.FUTURE);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStateCurrent_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.CURRENT;
-
+    void findAllByUserIdAndState_whenStateCurrent_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("current", new Current(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllCurrentBookingsByUserId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.CURRENT);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStatePast_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.PAST;
-
+    void findAllByUserIdAndState_whenStatePast_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("past", new Past(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByUserIdWhereEndBeforeCurrent(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllPastBookingsByUserId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.PAST);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStateWaiting_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.WAITING;
-
+    void findAllByUserIdAndState_whenStateWaiting_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("waiting", new Waiting(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findBookingsByUserIdWhereStatus(anyLong(), eq(Status.WAITING), any(Pageable.class)))
+        when(bookingRepository.findAllByUserIdAndStatus(anyLong(), eq(Status.WAITING), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.WAITING);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStateRejected_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.REJECTED;
-
+    void findAllByUserIdAndState_whenStateRejected_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("rejected", new Rejected(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findBookingsByUserIdWhereStatus(anyLong(), eq(Status.REJECTED), any(Pageable.class)))
+        when(bookingRepository.findAllByUserIdAndStatus(anyLong(), eq(Status.REJECTED), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.REJECTED);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByUserIdAndState_whenUserFoundAndStatusUnknown_thanThrowUnsupportedStateException() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.UNKNOWN;
-
+    void findAllByUserIdAndState_whenStatusUnknown_thanThrowUnsupportedStateException() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of());
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-
         assertThrows(UnsupportedStateException.class,
-                () -> bookingService.findAllByUserIdAndState(from, size, userId, state));
+                () -> bookingService.findAllByUserIdAndState(from, size, generator.nextLong(), State.UNKNOWN));
     }
 
     @Test
     void findAllByOwnerIdAndState_whenUserNotFound_throwUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
         assertThrows(UserNotFoundException.class,
-                () -> bookingService.findAllByOwnerIdAndState(1, 1, 1L, State.ALL));
+                () -> bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.ALL));
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFound_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.ALL;
-
+    void findAllByOwnerIdAndState_whenStateAll_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("all", new All(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByOwnerId(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllByOwnerId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.ALL);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStateFuture_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.FUTURE;
-
+    void findAllByOwnerIdAndState_whenFuture_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("future", new Future(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllFutureBookingsByOwnerId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.FUTURE);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStateCurrent_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.CURRENT;
-
+    void findAllByOwnerIdAndState_whenCurrent_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("current", new Current(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllCurrentBookingsByOwnerId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.CURRENT);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStatePast_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.PAST;
-
+    void findAllByOwnerIdAndState_whenStatePast_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("past", new Past(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findAllByOwnerIdWhereEndBeforeCurrent(anyLong(), any(Pageable.class)))
+        when(bookingRepository.findAllPastBookingsByOwnerId(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.PAST);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStateWaiting_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.WAITING;
-
+    void findAllByOwnerIdAndState_whenStateWaiting_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("waiting", new Waiting(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findBookingsByOwnerIdWhereStatus(anyLong(), eq(Status.WAITING), any(Pageable.class)))
+        when(bookingRepository.findAllByOwnerIdAndStatus(anyLong(),eq(Status.WAITING), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.WAITING);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStateRejected_thanReturnListBookingDtoOut() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.REJECTED;
-
+    void findAllByOwnerIdAndState_whenStateRejected_thanReturnListBookingDtoOut() {
+        ReflectionTestUtils.setField(bookingService, "mapper", BookingMapper.INSTANCE);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(bookingService, "repository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of("rejected", new Rejected(bookingRepository)));
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
+        Booking booking = generator.nextObject(Booking.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(bookingRepository.findBookingsByOwnerIdWhereStatus(anyLong(), eq(Status.REJECTED), any(Pageable.class)))
+        when(bookingRepository.findAllByOwnerIdAndStatus(anyLong(), eq(Status.REJECTED), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(booking)));
-
-        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, userId, state);
+        List<BookingDtoOut> bookingDtoOuts = bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.REJECTED);
         assertThat(bookingDtoOuts).hasSize(1);
-        assertEquals(bookingDtoOuts.get(0), referenceBookingDtoOut);
+        BookingDtoOut out = bookingDtoOuts.get(0);
+        assertEquals(booking.getId(), out.getId());
+        assertEquals(booking.getStart(), out.getStart());
+        assertEquals(booking.getEnd(), out.getEnd());
+        assertEquals(booking.getItem().getId(), out.getItem().getId());
+        assertEquals(booking.getItem().getName(), out.getItem().getName());
+        assertEquals(booking.getItem().getDescription(), out.getItem().getDescription());
+        assertEquals(booking.getItem().getAvailable(), out.getItem().isAvailable());
+        assertEquals(booking.getItem().getRequest().getId(), out.getItem().getRequestId());
+        assertEquals(booking.getUser().getId(), out.getItem().getOwnerId());
+        assertEquals(booking.getUser().getId(), out.getUser().getId());
     }
 
     @Test
-    void findAllByOwnerIdAndState_whenUserFoundAndStatusUnknown_thanThrowUnsupportedStateException() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        State state = State.UNKNOWN;
-
+    void findAllByOwnerIdAndState_whenStatusUnknown_thanThrowUnsupportedStateException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(bookingService, "userRepository", userRepository);
+        FinderStrategyFactory finderStrategyFactory = Mockito.mock(FinderStrategyFactory.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(finderStrategyFactory, "finderStrategyMap", Map.of());
+        ReflectionTestUtils.setField(bookingService, "finderStrategyFactory", finderStrategyFactory);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-
         assertThrows(UnsupportedStateException.class,
-                () -> bookingService.findAllByUserIdAndState(from, size, userId, state));
+                () -> bookingService.findAllByOwnerIdAndState(from, size, generator.nextLong(), State.UNKNOWN));
     }
+
 }

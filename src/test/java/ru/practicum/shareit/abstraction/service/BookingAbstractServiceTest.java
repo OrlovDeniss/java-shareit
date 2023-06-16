@@ -8,34 +8,40 @@ import java.util.Map;
 
 class BookingAbstractServiceTest extends AbstractServiceTest<Booking> {
 
-    private static final Long BOOKING_ID = 1L;
-    private static final LocalDateTime BOOKING_START = LocalDateTime.of(2024, 1, 1, 1, 1);
-    private static final LocalDateTime BOOKING_END = LocalDateTime.of(2025, 1, 1, 1, 1);
-    private static final Status STATUS = Status.APPROVED;
+    private final Long bookingId = generator.nextLong();
+    private final LocalDateTime bookingStart = generator.nextObject(LocalDateTime.class);
+    private final LocalDateTime bookingEnd = generator.nextObject(LocalDateTime.class);
+    private final Status bookingStatus = generator.nextObject(Status.class);
+
+    private final LocalDateTime updatedBookingStart = generator.nextObject(LocalDateTime.class);
+    private final LocalDateTime updatedBookingEnd = generator.nextObject(LocalDateTime.class);
 
     @Override
     protected Booking getEntity() {
         return Booking.builder()
-                .id(BOOKING_ID)
-                .start(BOOKING_START)
-                .end(BOOKING_END)
-                .status(STATUS)
+                .id(bookingId)
+                .start(bookingStart)
+                .end(bookingEnd)
+                .status(bookingStatus)
                 .build();
     }
 
     @Override
     protected Booking getReference() {
         return Booking.builder()
-                .id(BOOKING_ID)
-                .start(BOOKING_START)
-                .end(BOOKING_END)
-                .status(STATUS)
+                .id(bookingId)
+                .start(updatedBookingStart)
+                .end(updatedBookingEnd)
+                .status(bookingStatus)
                 .build();
     }
 
     @Override
     protected Map<String, Object> getNewFields() {
-        return Map.of();
+        return Map.of(
+                "start", updatedBookingStart.toString(),
+                "end", updatedBookingEnd.toString()
+        );
     }
 
 }

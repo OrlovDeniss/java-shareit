@@ -7,6 +7,7 @@ import ru.practicum.shareit.booking.state.State;
 
 import javax.validation.Valid;
 import javax.validation.constraints.Positive;
+import javax.validation.constraints.PositiveOrZero;
 import java.util.List;
 
 public interface BookingController {
@@ -14,6 +15,8 @@ public interface BookingController {
     String X_SHARER_USER_ID = "X-Sharer-User-Id";
     String FROM = "0";
     String SIZE = "10";
+    String STATE = "state";
+    String STATE_DEFAULT = "ALL";
 
     @GetMapping("{id}")
     BookingDtoOut get(@PathVariable("id") @Positive Long bookingId,
@@ -30,22 +33,18 @@ public interface BookingController {
     @PatchMapping("{id}")
     BookingDtoOut patch(@PathVariable("id") @Positive Long bookingId,
                         @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
-                        @RequestParam Boolean approved);
+                        @RequestParam boolean approved);
 
     @GetMapping
-    List<BookingDtoOut> getAllByUserId(@RequestParam(defaultValue = FROM) Integer from,
-                                       @RequestParam(defaultValue = SIZE) Integer size,
+    List<BookingDtoOut> getAllByUserId(@RequestParam(defaultValue = FROM) @PositiveOrZero Integer from,
+                                       @RequestParam(defaultValue = SIZE) @Positive Integer size,
                                        @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
-                                       @RequestParam(value = "state",
-                                               required = false,
-                                               defaultValue = "ALL") State state);
+                                       @RequestParam(value = STATE, defaultValue = STATE_DEFAULT) State state);
 
     @GetMapping("owner")
-    List<BookingDtoOut> getAllByOwnerId(@RequestParam(defaultValue = FROM) Integer from,
-                                        @RequestParam(defaultValue = SIZE) Integer size,
+    List<BookingDtoOut> getAllByOwnerId(@RequestParam(defaultValue = FROM) @PositiveOrZero Integer from,
+                                        @RequestParam(defaultValue = SIZE) @Positive Integer size,
                                         @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId,
-                                        @RequestParam(value = "state",
-                                                required = false,
-                                                defaultValue = "ALL") State state);
+                                        @RequestParam(value = STATE, defaultValue = STATE_DEFAULT) State state);
 
 }

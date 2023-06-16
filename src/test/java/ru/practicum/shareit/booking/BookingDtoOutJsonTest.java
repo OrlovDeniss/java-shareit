@@ -18,29 +18,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BookingDtoOutJsonTest {
 
     @Autowired
-    JacksonTester<BookingDtoOut> jacksonTester;
+    private JacksonTester<BookingDtoOut> jacksonTester;
 
-    private static final LocalDateTime START = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
-    private static final LocalDateTime END = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
-    final ItemDtoShort item = new ItemDtoShort(1L, "name", "description", true, 4L, 3L);
-    final UserDtoShort user = new UserDtoShort(1L);
+    private final LocalDateTime start = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
+    private final LocalDateTime end = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
+
+    private final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
+            .id(1L)
+            .name("name")
+            .description("description")
+            .available(true)
+            .requestId(4L)
+            .ownerId(3L)
+            .build();
+    private final UserDtoShort userDtoShort = UserDtoShort.builder()
+            .id(1L)
+            .build();
 
     @Test
     void bookingDtoOut_startAndEndTest() throws Exception {
         BookingDtoOut bookingDtoOut = BookingDtoOut.builder()
                 .id(1L)
-                .start(START)
-                .end(END)
-                .item(item)
-                .booker(user)
+                .start(start)
+                .end(end)
+                .item(itemDtoShort)
+                .user(userDtoShort)
                 .status(Status.APPROVED)
                 .build();
-
         JsonContent<BookingDtoOut> jsonContent = jacksonTester.write(bookingDtoOut);
-
         assertThat(jsonContent).extractingJsonPathStringValue("$.start")
-                .isEqualTo(START.toString());
+                .isEqualTo(start.toString());
         assertThat(jsonContent).extractingJsonPathStringValue("$.end")
-                .isEqualTo(END.toString());
+                .isEqualTo(end.toString());
     }
 }

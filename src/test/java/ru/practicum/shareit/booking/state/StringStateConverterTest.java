@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StringStateConverterTest {
 
-    StringToStateConverter stringToStateConverter = new StringToStateConverter();
+    private final StringToStateConverter stringToStateConverter = new StringToStateConverter();
 
     @Test
     void convert_whenStateIsExists_thenReturnState() {

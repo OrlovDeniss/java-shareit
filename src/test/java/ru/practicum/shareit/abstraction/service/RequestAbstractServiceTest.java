@@ -7,31 +7,37 @@ import java.util.Map;
 
 class RequestAbstractServiceTest extends AbstractServiceTest<Request> {
 
-    private static final Long REQUEST_ID = 1L;
-    private static final String REQUEST_DESCRIPTION = "description";
-    private static final LocalDateTime REQUEST_CREATED = LocalDateTime.of(2025, 1, 1, 1, 1);
+    private final Long requestId = generator.nextLong();
+    private final String requestDescription = generator.nextObject(String.class);
+    private final LocalDateTime requestCreated = generator.nextObject(LocalDateTime.class);
+
+    private final String updatedRequestDescription = generator.nextObject(String.class);
+    private final LocalDateTime updatedRequestCreated = generator.nextObject(LocalDateTime.class);
 
     @Override
     protected Request getEntity() {
         return Request.builder()
-                .id(REQUEST_ID)
-                .description(REQUEST_DESCRIPTION)
-                .created(REQUEST_CREATED)
+                .id(requestId)
+                .description(requestDescription)
+                .created(requestCreated)
                 .build();
     }
 
     @Override
     protected Request getReference() {
         return Request.builder()
-                .id(REQUEST_ID)
-                .description(REQUEST_DESCRIPTION)
-                .created(REQUEST_CREATED)
+                .id(requestId)
+                .description(updatedRequestDescription)
+                .created(updatedRequestCreated)
                 .build();
     }
 
     @Override
     protected Map<String, Object> getNewFields() {
-        return Map.of();
+        return Map.of(
+                "description", updatedRequestDescription,
+                "created", updatedRequestCreated.toString()
+        );
     }
 
 }

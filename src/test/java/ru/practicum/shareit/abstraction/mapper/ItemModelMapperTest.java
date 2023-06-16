@@ -1,38 +1,108 @@
 package ru.practicum.shareit.abstraction.mapper;
 
-import ru.practicum.shareit.user.dto.UserDto;
+import org.junit.jupiter.api.Test;
+import ru.practicum.shareit.item.dto.ItemDtoIn;
+import ru.practicum.shareit.item.dto.ItemDtoOut;
+import ru.practicum.shareit.item.dto.ItemDtoShort;
+import ru.practicum.shareit.item.mapper.ItemMapper;
+import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.user.model.User;
 
-class ItemModelMapperTest extends AbstractModelMapperTest<UserDto, UserDto, User> {
+import java.time.LocalDateTime;
+import java.util.List;
 
-    private static final Long ID = 1L;
-    private static final String NAME = "name";
-    private static final String EMAIL = "email@email.com";
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    final User user = User.builder()
-            .id(ID)
-            .name(NAME)
-            .email(EMAIL)
+class ItemModelMapperTest extends AbstractModelMapperTest<ItemDtoIn, ItemDtoOut, Item> {
+
+    private final Long userId = generator.nextLong();
+    private final String userName = generator.nextObject(String.class);
+    private final String userEmail = generator.nextObject(String.class);
+
+    private final Long requestId = generator.nextLong();
+    private final LocalDateTime requestCreated = generator.nextObject(LocalDateTime.class);
+    private final String requestDescription = generator.nextObject(String.class);
+
+    private final Long itemId = generator.nextLong();
+    private final String itemName = generator.nextObject(String.class);
+    private final String itemDescription = generator.nextObject(String.class);
+    private final Boolean itemAvailable = generator.nextBoolean();
+
+    private final User user = User.builder()
+            .id(userId)
+            .name(userName)
+            .email(userEmail)
             .build();
 
-    final UserDto userDto = UserDto.builder()
-            .id(ID)
-            .name(NAME)
-            .email(EMAIL)
+    private final Request request = Request.builder()
+            .id(requestId)
+            .description(requestDescription)
+            .created(requestCreated)
+            .user(user)
             .build();
 
-    @Override
-    protected User getEntity() {
-        return user;
+    private final Item item = Item.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .user(user)
+            .request(request)
+            .build();
+
+    private final ItemDtoIn itemDtoIn = ItemDtoIn.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .build();
+
+    private final ItemDtoOut itemDtoOut = ItemDtoOut.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .requestId(requestId)
+            .build();
+
+    private final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .requestId(requestId)
+            .ownerId(userId)
+            .build();
+
+    protected ItemModelMapperTest() {
+        super(ItemMapper.INSTANCE);
     }
 
     @Override
-    protected UserDto getDtoIn() {
-        return userDto;
+    protected Item getEntity() {
+        return item;
     }
 
     @Override
-    protected UserDto getDtoOut() {
-        return userDto;
+    protected ItemDtoIn getDtoIn() {
+        return itemDtoIn;
     }
+
+    @Override
+    protected ItemDtoOut getDtoOut() {
+        return itemDtoOut;
+    }
+
+    @Test
+    void toDtoShort() {
+        assertEquals(ItemMapper.INSTANCE.toDtoShort(item), itemDtoShort);
+    }
+
+    @Test
+    void toDtoShortList() {
+        assertArrayEquals(ItemMapper.INSTANCE.toDtoShort(List.of(item)).toArray(), List.of(itemDtoShort).toArray());
+    }
+
 }

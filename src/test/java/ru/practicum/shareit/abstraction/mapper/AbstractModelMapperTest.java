@@ -1,19 +1,21 @@
 package ru.practicum.shareit.abstraction.mapper;
 
+import org.jeasy.random.EasyRandom;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest
 abstract class AbstractModelMapperTest<I, O, E> {
 
-    @Autowired
-    ModelMapper<I, O, E> mapper;
+    protected final ModelMapper<I, O, E> mapper;
+    protected final EasyRandom generator = new EasyRandom();
+
+    protected AbstractModelMapperTest(ModelMapper<I, O, E> mapper) {
+        this.mapper = mapper;
+    }
 
     protected abstract E getEntity();
 

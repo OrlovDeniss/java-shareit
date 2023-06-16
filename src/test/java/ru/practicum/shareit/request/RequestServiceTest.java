@@ -1,177 +1,202 @@
 package ru.practicum.shareit.request;
 
+import org.jeasy.random.EasyRandom;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 import ru.practicum.shareit.request.dto.RequestDtoIn;
 import ru.practicum.shareit.request.dto.RequestDtoOut;
+import ru.practicum.shareit.request.mapper.RequestMapper;
 import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.request.repository.RequestRepository;
 import ru.practicum.shareit.request.service.RequestServiceImpl;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
+import ru.practicum.shareit.util.exception.request.RequestNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
+import ru.practicum.shareit.util.pagerequest.PageRequester;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 class RequestServiceTest {
 
-    @Autowired
-    RequestServiceImpl requestService;
-    @MockBean
-    RequestRepository requestRepository;
-    @MockBean
-    UserRepository userRepository;
+    private RequestServiceImpl requestService;
+    private final EasyRandom generator = new EasyRandom();
 
-    private static final LocalDateTime now = LocalDateTime.now();
-    private static final String TEST_DESCRIPTION = "description";
+    private final int from = 0;
+    private final int size = 10;
 
-    final User user1 = User.builder()
-            .id(1L)
-            .name("user1")
-            .email("user1@user.com")
-            .build();
-    final Request requestFromDb = Request.builder()
-            .id(1L)
-            .description(TEST_DESCRIPTION)
-            .created(now)
-            .user(user1)
-            .build();
-
-    final Request referenceRequestToDb = Request.builder()
-            .description(TEST_DESCRIPTION)
-            .created(now)
-            .user(user1)
-            .build();
-    final RequestDtoIn requestDtoIn = RequestDtoIn.builder()
-            .description(TEST_DESCRIPTION)
-            .build();
-    final RequestDtoOut referenceDtoOut = RequestDtoOut.builder()
-            .id(1L)
-            .description(TEST_DESCRIPTION)
-            .created(now)
-            .items(Collections.emptyList())
-            .build();
-
-    @Captor
-    ArgumentCaptor<Request> requestCaptor;
-
-    @Test
-    void create_whenUserExists_thanCreateAndReturnRequestDtoOut() {
-        when(userRepository.existsById(1L))
-                .thenReturn(true);
-        when(userRepository.findById(1L))
-                .thenReturn(Optional.of(user1));
-        when(requestRepository.save(any(Request.class)))
-                .thenReturn(requestFromDb);
-
-        RequestDtoOut createdRequestDtoOut = requestService.create(requestDtoIn, 1L);
-        assertNotNull(createdRequestDtoOut);
-        assertNotNull(createdRequestDtoOut.getCreated());
-        assertEquals(createdRequestDtoOut, referenceDtoOut);
-
-        verify(requestRepository)
-                .save(requestCaptor.capture());
-        Request requestToDbCaptor = requestCaptor.getValue();
-        assertNotNull(requestToDbCaptor.getCreated());
-        requestToDbCaptor.setCreated(now);
-        assertEquals(requestToDbCaptor, referenceRequestToDb);
+    @BeforeEach
+    void setUp() {
+        requestService = Mockito.mock(RequestServiceImpl.class, CALLS_REAL_METHODS);
     }
 
     @Test
     void create_whenUserNotExists_thanThrowUserNotFoundException() {
-        Long userId = 1L;
-
-        when(userRepository.existsById(userId))
-                .thenReturn(false);
-
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
         assertThrows(UserNotFoundException.class,
-                () -> requestService.create(requestDtoIn, userId));
-
+                () -> requestService.create(generator.nextObject(RequestDtoIn.class), generator.nextLong()));
         verify(requestRepository, never()).save(any(Request.class));
     }
 
     @Test
-    void findAllByOwnerId_whenUserNotFound_thanThrowUserNotFoundException() {
-        Long userId = 1L;
+    void create_whenUserExists_thanReturnRequestDtoOut() {
+        ReflectionTestUtils.setField(requestService, "mapper", RequestMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        User user = generator.nextObject(User.class);
+        RequestDtoIn in = generator.nextObject(RequestDtoIn.class);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.of(user));
+        when(requestRepository.save(any(Request.class)))
+                .then(returnsFirstArg());
+        RequestDtoOut created = requestService.create(in, user.getId());
+        assertNotNull(created.getId());
+        assertEquals(in.getDescription(), created.getDescription());
+        assertNotNull(created.getCreated());
+        assertNull(created.getItems());
+        verify(requestRepository, times(1))
+                .save(any(Request.class));
+    }
 
-        when(userRepository.existsById(userId))
+    @Test
+    void findById_whenUserNotExists_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
-
         assertThrows(UserNotFoundException.class,
-                () -> requestService.findAllByOwnerId(userId));
+                () -> requestService.findById(generator.nextLong(), generator.nextLong()));
+        verify(requestRepository, never()).save(any(Request.class));
+    }
 
+    @Test
+    void findById_whenRequestNotExists_thenThrowRequestNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(requestRepository.findById(anyLong()))
+                .thenReturn(Optional.empty());
+        assertThrows(RequestNotFoundException.class,
+                () -> requestService.findById(generator.nextLong(), generator.nextLong()));
+        verify(requestRepository, never()).save(any(Request.class));
+    }
+
+    @Test
+    void findById_whenCorrect_thenReturnRequestDtoOut() {
+        ReflectionTestUtils.setField(requestService, "mapper", RequestMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        Request request = generator.nextObject(Request.class);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(requestRepository.findById(anyLong()))
+                .thenReturn(Optional.of(request));
+        RequestDtoOut found = requestService.findById(generator.nextLong(), generator.nextLong());
+        assertEquals(request.getId(), found.getId());
+        assertEquals(request.getDescription(), found.getDescription());
+        assertEquals(request.getCreated(), found.getCreated());
+        assertNotNull(found.getItems());
+        verify(requestRepository, times(1)).findById(anyLong());
+    }
+
+    @Test
+    void findAllByUserId_whenUserNotFound_thanThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(false);
+        assertThrows(UserNotFoundException.class,
+                () -> requestService.findAllByUserId(from, size, generator.nextLong()));
+        verify(requestRepository, never()).findAllOtherRequestsByUserId(anyLong(), any(PageRequester.class));
+    }
+
+    @Test
+    void findAllByUserId_whenUserFound_thanReturnListRequests() {
+        ReflectionTestUtils.setField(requestService, "mapper", RequestMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        Request request = generator.nextObject(Request.class);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(requestRepository.findAllOtherRequestsByUserId(anyLong(), any(PageRequester.class)))
+                .thenReturn(new PageImpl<>(List.of(request)));
+        List<RequestDtoOut> foundList = requestService.findAllByUserId(from, size, generator.nextLong());
+        assertThat(foundList).hasSize(1);
+        RequestDtoOut found = foundList.get(0);
+        assertEquals(request.getId(), found.getId());
+        assertEquals(request.getDescription(), found.getDescription());
+        assertEquals(request.getCreated(), found.getCreated());
+        assertNotNull(found.getItems());
+        verify(requestRepository, times(1))
+                .findAllOtherRequestsByUserId(anyLong(), any(Pageable.class));
+    }
+
+    @Test
+    void findAllByOwnerId_whenUserNotFound_thanThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(false);
+        assertThrows(UserNotFoundException.class,
+                () -> requestService.findAllByOwnerId(generator.nextLong()));
         verify(requestRepository, never()).findAllByOwnerIdWithItems(anyLong());
     }
 
     @Test
     void findAllByOwnerId_whenUserFound_thanReturnListRequests() {
-        Long userId = 1L;
-
-        when(userRepository.existsById(userId))
+        ReflectionTestUtils.setField(requestService, "mapper", RequestMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(requestService, "userRepository", userRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(requestService, "repository", requestRepository);
+        Request request = generator.nextObject(Request.class);
+        when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(requestRepository.findAllByOwnerIdWithItems(userId))
-                .thenReturn(List.of(requestFromDb));
-
-        List<RequestDtoOut> requestDtoOut = requestService.findAllByOwnerId(userId);
-        assertThat(requestDtoOut).hasSize(1);
-        assertEquals(requestDtoOut.get(0), referenceDtoOut);
-
+        when(requestRepository.findAllByOwnerIdWithItems(anyLong()))
+                .thenReturn(List.of(request));
+        List<RequestDtoOut> foundList = requestService.findAllByOwnerId(generator.nextLong());
+        assertThat(foundList).hasSize(1);
+        RequestDtoOut found = foundList.get(0);
+        assertEquals(request.getId(), found.getId());
+        assertEquals(request.getDescription(), found.getDescription());
+        assertEquals(request.getCreated(), found.getCreated());
+        assertNotNull(found.getItems());
         verify(requestRepository, times(1))
                 .findAllByOwnerIdWithItems(anyLong());
-    }
-
-    @Test
-    void findAllByUserId_whenUserFound_thanReturnListRequests() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        Pageable pageable = PageRequest.of(from / size, size, Sort.by("created").descending());
-
-        when(userRepository.existsById(userId))
-                .thenReturn(true);
-        when(requestRepository.findAllOtherRequestsByUserId(userId, pageable))
-                .thenReturn(new PageImpl<>(List.of(requestFromDb)));
-
-        List<RequestDtoOut> requestDtoOut = requestService.findAllByUserId(from, size, userId);
-        assertThat(requestDtoOut).hasSize(1);
-        assertEquals(requestDtoOut.get(0), referenceDtoOut);
-
-        verify(requestRepository, times(1)).findAllOtherRequestsByUserId(anyLong(), any(PageRequest.class));
-    }
-
-    @Test
-    void findAllByUserId_whenUserNotFound_thanThrowUserNotFoundException() {
-        Integer from = 1;
-        Integer size = 1;
-        Long userId = 1L;
-        Pageable pageable = PageRequest.of(from / size, size, Sort.by("created").descending());
-
-        when(userRepository.existsById(userId))
-                .thenReturn(false);
-        when(requestRepository.findAllOtherRequestsByUserId(userId, pageable))
-                .thenReturn(new PageImpl<>(List.of(requestFromDb)));
-
-        assertThrows(UserNotFoundException.class,
-                () -> requestService.findAllByOwnerId(userId));
-
-        verify(requestRepository, never()).findAllOtherRequestsByUserId(anyLong(), any(PageRequest.class));
     }
 
 }

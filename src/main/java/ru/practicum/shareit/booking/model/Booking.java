@@ -1,7 +1,6 @@
 package ru.practicum.shareit.booking.model;
 
 import lombok.*;
-import ru.practicum.shareit.abstraction.model.UserObject;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
 
@@ -13,7 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Booking implements UserObject {
+public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

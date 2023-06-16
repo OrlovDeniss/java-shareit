@@ -1,17 +1,17 @@
 package ru.practicum.shareit.booking.dto;
 
-import lombok.*;
-import ru.practicum.shareit.abstraction.model.Identified;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BookingDtoShort implements Identified {
+public class BookingDtoShort {
 
-    @NonNull
     private Long id;
-    @NonNull
     private Long bookerId;
 
 }

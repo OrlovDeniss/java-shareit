@@ -1,7 +1,6 @@
 package ru.practicum.shareit.request.model;
 
 import lombok.*;
-import ru.practicum.shareit.abstraction.model.UserObject;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
 
@@ -14,7 +13,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Request implements UserObject {
+public class Request {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,7 +23,7 @@ public class Request implements UserObject {
 
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @OneToMany(fetch = FetchType.LAZY)
+    @OneToMany
     private List<Item> items;
 
     @ToString.Exclude

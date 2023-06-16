@@ -5,6 +5,7 @@ import ru.practicum.shareit.item.dto.ItemDtoShort;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.request.dto.RequestDtoIn;
 import ru.practicum.shareit.request.dto.RequestDtoOut;
+import ru.practicum.shareit.request.mapper.RequestMapper;
 import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.user.model.User;
 
@@ -15,56 +16,66 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class RequestModelMapperTest extends AbstractModelMapperTest<RequestDtoIn, RequestDtoOut, Request> {
 
-    private static final Long ITEM_ID = 2L;
-    private static final Long USER_ID = 3L;
-    private static final Long REQUEST_ID = 5L;
-    private static final LocalDateTime REQUEST_CREATED = LocalDateTime.of(2222, 1, 1, 1, 1, 1);
-    private static final String ITEM_NAME = "item_name";
-    private static final String ITEM_DESCRIPTION = "item_description";
-    private static final String REQUEST_DESCRIPTION = "request_description";
-    private static final boolean AVAILABLE = true;
+    private final Long userId = generator.nextLong();
+    private final String userName = generator.nextObject(String.class);
+    private final String userEmail = generator.nextObject(String.class);
 
-    final User user = User.builder()
-            .id(USER_ID)
-            .name("user")
-            .email("user@user.com")
+    private final Long itemId = generator.nextLong();
+    private final String itemName = generator.nextObject(String.class);
+    private final String itemDescription = generator.nextObject(String.class);
+    private final Boolean itemAvailable = generator.nextBoolean();
+
+    private final Long requestId = generator.nextLong();
+    private final LocalDateTime requestCreated = generator.nextObject(LocalDateTime.class);
+    private final String requestDescription = generator.nextObject(String.class);
+
+    private final User user = User.builder()
+            .id(userId)
+            .name(userName)
+            .email(userEmail)
             .build();
 
-    final Item item = Item.builder()
-            .id(ITEM_ID)
-            .name(ITEM_NAME)
-            .description(ITEM_DESCRIPTION)
-            .available(AVAILABLE)
+    private final Item item = Item.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
             .user(user)
+            .request(Request.builder().id(requestId).build())
             .build();
 
-    final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
-            .id(ITEM_ID)
-            .name(ITEM_NAME)
-            .description(ITEM_DESCRIPTION)
-            .available(AVAILABLE)
-            .ownerId(USER_ID)
+    private final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .requestId(requestId)
+            .ownerId(userId)
             .build();
 
-    final Request request = Request.builder()
-            .id(REQUEST_ID)
-            .description(REQUEST_DESCRIPTION)
-            .created(REQUEST_CREATED)
+    private final Request request = Request.builder()
+            .id(requestId)
+            .description(requestDescription)
+            .created(requestCreated)
             .items(List.of(item))
             .user(user)
             .build();
 
-    final RequestDtoIn requestDtoIn = RequestDtoIn.builder()
-            .id(REQUEST_ID)
-            .description(REQUEST_DESCRIPTION)
+    private final RequestDtoIn requestDtoIn = RequestDtoIn.builder()
+            .id(requestId)
+            .description(requestDescription)
             .build();
 
-    final RequestDtoOut requestDtoOut = RequestDtoOut.builder()
-            .id(REQUEST_ID)
-            .description(REQUEST_DESCRIPTION)
-            .created(REQUEST_CREATED)
+    private final RequestDtoOut requestDtoOut = RequestDtoOut.builder()
+            .id(requestId)
+            .description(requestDescription)
+            .created(requestCreated)
             .items(List.of(itemDtoShort))
             .build();
+
+    protected RequestModelMapperTest() {
+        super(RequestMapper.INSTANCE);
+    }
 
     @Override
     protected Request getEntity() {
@@ -84,8 +95,9 @@ class RequestModelMapperTest extends AbstractModelMapperTest<RequestDtoIn, Reque
     @Test
     @Override
     void toEntityTest() {
-        Request request1 = mapper.toEntity(getDtoIn());
-        request1.setCreated(REQUEST_CREATED); // service layer responsibility
-        assertEquals(getEntity(), request1);
+        Request r = mapper.toEntity(getDtoIn());
+        r.setCreated(requestCreated); // service layer responsibility
+        assertEquals(getEntity(), r);
     }
+
 }

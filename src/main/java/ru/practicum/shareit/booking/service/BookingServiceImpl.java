@@ -1,16 +1,14 @@
 package ru.practicum.shareit.booking.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.shareit.abstraction.userobject.AbstractUserObjectService;
+import ru.practicum.shareit.abstraction.service.AbstractService;
 import ru.practicum.shareit.booking.dto.BookingDtoIn;
 import ru.practicum.shareit.booking.dto.BookingDtoOut;
-import ru.practicum.shareit.booking.mapper.BookingModelMapper;
+import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.booking.repository.BookingRepository;
@@ -18,135 +16,147 @@ import ru.practicum.shareit.booking.service.finder.FinderStrategyFactory;
 import ru.practicum.shareit.booking.state.State;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.ItemRepository;
+import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.booking.*;
 import ru.practicum.shareit.util.exception.item.ItemNotAvailableException;
 import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
+import ru.practicum.shareit.util.exception.user.UserNotFoundException;
+import ru.practicum.shareit.util.pagerequest.PageRequester;
 
 import java.util.List;
 
-@Slf4j
 @Service
-public class BookingServiceImpl extends AbstractUserObjectService<BookingDtoIn, BookingDtoOut, Booking>
-        implements BookingService {
+@Transactional
+public class BookingServiceImpl extends AbstractService<BookingDtoIn, BookingDtoOut, Booking> implements BookingService {
 
-    private final BookingRepository bookingRepository;
     private final ItemRepository itemRepository;
+    private final UserRepository userRepository;
     private final FinderStrategyFactory finderStrategyFactory;
 
-    private final Sort sort = Sort.by("start").descending();
+    private static final Sort sort = Sort.by("start").descending();
 
-
-    protected BookingServiceImpl(BookingModelMapper mapper,
-                                 UserRepository userRepository,
-                                 ObjectMapper objectMapper,
-                                 BookingRepository bookingRepository,
-                                 ItemRepository itemRepository,
-                                 FinderStrategyFactory finderStrategyFactory) {
-        super(mapper, userRepository, objectMapper, bookingRepository);
-        this.bookingRepository = bookingRepository;
+    public BookingServiceImpl(JpaRepository<Booking, Long> repository,
+                              ObjectMapper objectMapper,
+                              ItemRepository itemRepository,
+                              UserRepository userRepository,
+                              FinderStrategyFactory finderStrategyFactory) {
+        super(repository, BookingMapper.INSTANCE, objectMapper);
         this.itemRepository = itemRepository;
+        this.userRepository = userRepository;
         this.finderStrategyFactory = finderStrategyFactory;
     }
 
     @Override
-    @Transactional
     public BookingDtoOut create(BookingDtoIn bookingDtoIn, Long userId) {
         throwWhenStartAfterEndOrEquals(bookingDtoIn);
-        throwWhenUserNotFound(userId);
-        Item item = itemRepository.findByIdWithUser(bookingDtoIn.getItemId()).orElseThrow(ItemNotFoundException::new);
-        throwWhenItemAvailableIsFalse(item);
-        throwWhenUserOwnerItem(item, userId);
-        throwWhenBookingAlreadyExists(item, userId);
-        Booking booking = toEntity(bookingDtoIn);
-        booking.setItem(item);
-        booking.setStatus(Status.WAITING);
-        return toDto(super.createUserObject(booking, userId));
+        throwWhenItemAvailableIsFalseOrNotExists(bookingDtoIn.getItemId());
+        throwWhenUserOwnItemOrNotExists(bookingDtoIn.getItemId(), userId);
+        return toDto(getRepository().save(mergeToBookingWithStatusWaiting(bookingDtoIn, userId)));
     }
 
     @Override
+    public BookingDtoOut update(BookingDtoIn bookingDtoIn, Long userId) {
+        throwWhenStartAfterEndOrEquals(bookingDtoIn);
+        throwWhenUserNotBookerOrNotExists(bookingDtoIn.getId(), userId);
+        return toDto(getRepository().save(mergeToBookingWithStatusWaiting(bookingDtoIn, userId)));
+    }
+
     @Transactional(readOnly = true)
     public BookingDtoOut findById(Long bookingId, Long userId) {
-        Booking booking = bookingRepository.findByIdWithUserAndItem(bookingId).orElseThrow(BookingNotFoundException::new);
-        throwWhenUserNotOwnBookingItemAndNotBooker(booking, userId);
-        return toDto(booking);
+        throwWhenUserNotBookerOrNotItemOwnerOrNotExists(bookingId, userId);
+        return toDto(getRepository().findByIdWithUserAndItem(bookingId).orElseThrow(BookingNotFoundException::new));
     }
 
     @Override
-    @Transactional
-    public BookingDtoOut patch(Long bookingId, Long userId, Boolean approved) {
-        throwWhenUserNotFound(userId);
-        Booking booking = bookingRepository.findByIdWithUserAndItem(bookingId).orElseThrow(BookingNotFoundException::new);
-        throwWhenBookingStatusIsApproved(booking);
-        throwWhenUserNotOwnerBookingItem(booking, userId);
-        boolean isApproved = Boolean.TRUE.equals(approved);
-        if (isApproved) {
+    public BookingDtoOut patch(Long bookingId, Long userId, boolean approved) {
+        throwWhenBookingPatchNotItemOwner(bookingId, userId);
+        throwWhenBookingStatusIsNotWaiting(bookingId);
+        Booking booking = getRepository().findByIdWithUserAndItem(bookingId).orElseThrow(BookingNotFoundException::new);
+        if (approved) {
             booking.setStatus(Status.APPROVED);
         } else {
             booking.setStatus(Status.REJECTED);
         }
-        return toDto(bookingRepository.save(booking));
+        return toDto(getRepository().save(booking));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<BookingDtoOut> findAllByUserIdAndState(Integer from, Integer size, Long userId, State state) {
-        throwWhenUserNotFound(userId);
-        Pageable sortedByStartDesc = PageRequest.of(from / size, size, sort);
-        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByUserId(userId, sortedByStartDesc));
+        throwWhenUserNotExist(userId);
+        return toDto(finderStrategyFactory.findStrategyByState(state)
+                .findAllByUserId(userId, new PageRequester(from, size, sort)));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<BookingDtoOut> findAllByOwnerIdAndState(Integer from, Integer size, Long ownerId, State state) {
-        throwWhenUserNotFound(ownerId);
-        Pageable sortedByStartDesc = PageRequest.of(from / size, size, sort);
-        return toDto(finderStrategyFactory.findStrategyByState(state).findAllByOwnerId(ownerId, sortedByStartDesc));
+        throwWhenUserNotExist(ownerId);
+        return toDto(finderStrategyFactory.findStrategyByState(state)
+                .findAllByOwnerId(ownerId, new PageRequester(from, size, sort)));
     }
 
-    private void throwWhenUserNotOwnerBookingItem(Booking booking, Long userId) {
-        boolean isNotOwnerBookingItem = !booking.getItem().getUser().getId().equals(userId);
-        if (isNotOwnerBookingItem) {
+    private Booking mergeToBookingWithStatusWaiting(BookingDtoIn bookingDtoIn, Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        Item item = itemRepository.findById(bookingDtoIn.getItemId()).orElseThrow(ItemNotFoundException::new);
+        Booking booking = toEntity(bookingDtoIn);
+        booking.setUser(user);
+        booking.setItem(item);
+        booking.setStatus(Status.WAITING);
+        return booking;
+    }
+
+    private void throwWhenUserNotExist(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new UserNotFoundException(String.format("id = %d не существует!", id));
+        }
+    }
+
+    private void throwWhenBookingPatchNotItemOwner(Long bookingId, Long userId) {
+        if (!getRepository().existsByIdAndItemUserId(bookingId, userId)) {
+            throw new BookingStatusPatchException();
+        }
+    }
+
+    private void throwWhenUserNotBookerOrNotItemOwnerOrNotExists(Long bookingId, Long userId) {
+        if (!getRepository().existsByBookingIdWithUserIdOrItemUserId(bookingId, userId)) {
             throw new BookingAccessException();
         }
     }
 
-    private void throwWhenUserNotOwnBookingItemAndNotBooker(Booking booking, Long userId) {
-        boolean isNotOwnerBookingItem = !booking.getItem().getUser().getId().equals(userId);
-        boolean isNotBooker = !booking.getUser().getId().equals(userId);
-        if (isNotOwnerBookingItem && isNotBooker) {
-            throw new BookingAccessException();
-        }
-    }
-
-    private void throwWhenBookingStatusIsApproved(Booking booking) {
-        if (booking.getStatus().equals(Status.APPROVED)) {
-            throw new BookingAlreadyApprovedException();
+    private void throwWhenBookingStatusIsNotWaiting(Long bookingId) {
+        if (!getRepository().existsByIdAndStatus(bookingId, Status.WAITING)) {
+            throw new BookingPatchConstraintException();
         }
     }
 
     private void throwWhenStartAfterEndOrEquals(BookingDtoIn dtoIn) {
         if (dtoIn.getStart().isAfter(dtoIn.getEnd()) || dtoIn.getStart().equals(dtoIn.getEnd())) {
-            throw new BookingTimeConstraintException();
+            throw new BookingStartEndTimeException();
         }
     }
 
-    private void throwWhenItemAvailableIsFalse(Item item) {
-        if (Boolean.FALSE.equals(item.getAvailable())) {
-            throw new ItemNotAvailableException(String.format("Предмет id = %d не доступен.", item.getId()));
+    private void throwWhenItemAvailableIsFalseOrNotExists(Long itemId) {
+        if (itemRepository.existsByIdAndAvailableIsFalse(itemId)) {
+            throw new ItemNotAvailableException(String.format("Предмет id = %d не доступен или не существует.", itemId));
         }
     }
 
-    private void throwWhenUserOwnerItem(Item item, Long userId) {
-        if (item.getUser().getId().equals(userId)) {
-            throw new BookingOwnerItemException();
+    private void throwWhenUserOwnItemOrNotExists(Long itemId, Long userId) {
+        if (itemRepository.existsByIdAndUserId(itemId, userId)) {
+            throw new BookingItemOwnerException();
         }
     }
 
-    private void throwWhenBookingAlreadyExists(Item item, Long userId) {
-        if (bookingRepository.findBookingByUserIdAndItemIdAndStatus(userId, item.getId(), Status.WAITING).isPresent()) {
-            throw new BookingAlreadyExistsException();
+    private void throwWhenUserNotBookerOrNotExists(Long itemId, Long userId) {
+        if (!getRepository().existsByIdAndUserId(itemId, userId)) {
+            throw new BookingUpdateAccessException();
         }
+    }
+
+    private BookingRepository getRepository() {
+        return (BookingRepository) repository;
     }
 
 }

@@ -6,6 +6,7 @@ import ru.practicum.shareit.request.dto.RequestDtoOut;
 
 import javax.validation.Valid;
 import javax.validation.constraints.Positive;
+import javax.validation.constraints.PositiveOrZero;
 import java.util.List;
 
 public interface RequestController {
@@ -21,8 +22,8 @@ public interface RequestController {
                        @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
 
     @GetMapping("all")
-    List<RequestDtoOut> getAllCreatedByOtherUsers(@RequestParam(required = false) Integer from,
-                                                  @RequestParam(required = false) Integer size,
+    List<RequestDtoOut> getAllCreatedByOtherUsers(@RequestParam(required = false) @PositiveOrZero Integer from,
+                                                  @RequestParam(required = false) @Positive Integer size,
                                                   @RequestHeader(value = X_SHARER_USER_ID) @Positive Long userId);
 
     @GetMapping

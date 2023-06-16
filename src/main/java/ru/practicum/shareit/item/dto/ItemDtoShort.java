@@ -1,28 +1,21 @@
 package ru.practicum.shareit.item.dto;
 
-import lombok.*;
-import ru.practicum.shareit.abstraction.model.Identified;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ItemDtoShort implements Identified {
+public class ItemDtoShort {
 
-    @NonNull
     private Long id;
-
-    @NonNull
     private String name;
-
-    @NonNull
     private String description;
-
     private boolean available;
-
     private Long requestId;
-
-    @NonNull
     private Long ownerId;
 
 }

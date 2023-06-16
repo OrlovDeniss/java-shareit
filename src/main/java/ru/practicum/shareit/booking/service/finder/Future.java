@@ -16,12 +16,12 @@ public class Future implements FinderStrategy {
 
     @Override
     public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
-        return bookingRepository.findAllByUserIdWhereStartIsAfterCurrentTimestamp(userId, pageable).toList();
+        return bookingRepository.findAllFutureBookingsByUserId(userId, pageable).toList();
     }
 
     @Override
     public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
-        return bookingRepository.findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(ownerId, pageable).toList();
+        return bookingRepository.findAllFutureBookingsByOwnerId(ownerId, pageable).toList();
     }
 
 }

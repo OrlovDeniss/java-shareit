@@ -26,42 +26,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BookingRepositoryTest {
 
     @Autowired
-    TestEntityManager entityManager;
+    private TestEntityManager entityManager;
     @Autowired
-    BookingRepository bookingRepository;
+    private BookingRepository bookingRepository;
 
-    private static final LocalDateTime START = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
-    private static final LocalDateTime END = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
+    private final LocalDateTime start = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
+    private final LocalDateTime end = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
 
-    final User user = User.builder()
+    private final User user = User.builder()
             .name("user1")
             .email("user1@one.ru")
             .build();
 
-    final Item item = Item.builder()
+    private final Item item = Item.builder()
             .name("item1")
             .description("description1")
             .available(true)
             .user(user)
             .build();
 
-    final Booking futureBooking = Booking.builder()
-            .start(START)
-            .end(END)
+    private final Booking futureBooking = Booking.builder()
+            .start(start)
+            .end(end)
             .item(item)
             .user(user)
             .status(Status.WAITING)
             .build();
 
-    final Booking futureBookingIsApproved = Booking.builder()
-            .start(START)
-            .end(END)
+    private final Booking futureBookingIsApproved = Booking.builder()
+            .start(start)
+            .end(end)
             .item(item)
             .user(user)
             .status(Status.APPROVED)
             .build();
 
-    final Booking currentBooking = Booking.builder()
+    private final Booking currentBooking = Booking.builder()
             .start(LocalDateTime.now().minusDays(1))
             .end(LocalDateTime.now().plusDays(1))
             .item(item)
@@ -69,9 +69,9 @@ class BookingRepositoryTest {
             .status(Status.APPROVED)
             .build();
 
-    final Booking oldBooking = Booking.builder()
-            .start(START.minusYears(1000))
-            .end(END.minusYears(1000))
+    private final Booking oldBooking = Booking.builder()
+            .start(start.minusYears(1000))
+            .end(end.minusYears(1000))
             .item(item)
             .user(user)
             .status(Status.APPROVED)
@@ -127,7 +127,7 @@ class BookingRepositoryTest {
         entityManager.persist(futureBooking);
         entityManager.persist(oldBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findAllByUserIdWhereStartIsAfterCurrentTimestamp(user.getId(), Pageable.ofSize(10));
+                .findAllFutureBookingsByUserId(user.getId(), Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
     }
 
@@ -136,7 +136,7 @@ class BookingRepositoryTest {
         entityManager.persist(futureBooking);
         entityManager.persist(oldBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(user.getId(), Pageable.ofSize(10));
+                .findAllFutureBookingsByOwnerId(user.getId(), Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
     }
 
@@ -145,7 +145,7 @@ class BookingRepositoryTest {
         entityManager.persist(futureBooking);
         entityManager.persist(oldBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findAllByUserIdWhereEndBeforeCurrent(user.getId(), Pageable.ofSize(10));
+                .findAllPastBookingsByUserId(user.getId(), Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
     }
 
@@ -154,7 +154,7 @@ class BookingRepositoryTest {
         entityManager.persist(futureBooking);
         entityManager.persist(oldBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findAllByOwnerIdWhereEndBeforeCurrent(user.getId(), Pageable.ofSize(10));
+                .findAllPastBookingsByOwnerId(user.getId(), Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
     }
 
@@ -164,7 +164,7 @@ class BookingRepositoryTest {
         entityManager.persist(oldBooking);
         entityManager.persist(currentBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(user.getId(), Pageable.ofSize(10));
+                .findAllCurrentBookingsByUserId(user.getId(), Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
     }
 
@@ -174,7 +174,7 @@ class BookingRepositoryTest {
         entityManager.persist(oldBooking);
         entityManager.persist(currentBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findBookingsByUserIdWhereStatus(user.getId(), Status.WAITING, Pageable.ofSize(10));
+                .findAllByUserIdAndStatus(user.getId(), Status.WAITING, Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
         assertThat(foundBooking.toList().get(0)).isEqualTo(futureBooking);
     }
@@ -185,7 +185,7 @@ class BookingRepositoryTest {
         entityManager.persist(oldBooking);
         entityManager.persist(currentBooking);
         Page<Booking> foundBooking = bookingRepository
-                .findBookingsByOwnerIdWhereStatus(user.getId(), Status.WAITING, Pageable.ofSize(10));
+                .findAllByOwnerIdAndStatus(user.getId(), Status.WAITING, Pageable.ofSize(10));
         assertThat(foundBooking.toList()).hasSize(1);
         assertThat(foundBooking.toList().get(0)).isEqualTo(futureBooking);
     }
@@ -231,4 +231,17 @@ class BookingRepositoryTest {
                 .findNextBookingsByUserId(user.getId());
         assertThat(foundBookings).hasSize(1);
     }
+
+    @Test
+    void existsByBookingIdWithUserIdOrItemUserId_whenExists_thenReturnTrue() {
+        entityManager.persist(currentBooking);
+        assertTrue(bookingRepository.existsByBookingIdWithUserIdOrItemUserId(currentBooking.getId(), user.getId()));
+    }
+
+    @Test
+    void existsByBookingIdWithUserIdOrItemUserId_whenNotExists_thenReturnFalse() {
+        entityManager.persist(currentBooking);
+        assertFalse(bookingRepository.existsByBookingIdWithUserIdOrItemUserId(currentBooking.getId(), 999L));
+    }
+
 }

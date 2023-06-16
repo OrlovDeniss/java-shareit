@@ -1,12 +1,17 @@
 package ru.practicum.shareit.abstraction.mapper;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.projection.SpelAwareProxyProjectionFactory;
 import ru.practicum.shareit.booking.dto.BookingDtoIn;
 import ru.practicum.shareit.booking.dto.BookingDtoOut;
+import ru.practicum.shareit.booking.dto.BookingDtoShort;
+import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.item.dto.ItemDtoShort;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.user.dto.UserDtoShort;
 import ru.practicum.shareit.user.model.User;
 
@@ -16,66 +21,90 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class BookingModelMapperTest extends AbstractModelMapperTest<BookingDtoIn, BookingDtoOut, Booking> {
 
-    private static final Long BOOKING_ID = 1L;
-    private static final Long ITEM_ID = 2L;
-    private static final Long USER_ID = 3L;
-    private static final LocalDateTime START = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
-    private static final LocalDateTime END = LocalDateTime.of(2078, 1, 1, 1, 1, 1);
-    private static final String ITEM_NAME = "item_name";
-    private static final String ITEM_DESCRIPTION = "item_description";
-    private static final boolean AVAILABLE = true;
-    private static final Status STATUS = Status.APPROVED;
+    private final BookingShort bookingShort = new SpelAwareProxyProjectionFactory().createProjection(BookingShort.class);
 
-    final User user = User.builder()
-            .id(USER_ID)
-            .name("user")
-            .email("user@user.com")
+    private final Long userId = generator.nextLong();
+    private final String userName = generator.nextObject(String.class);
+    private final String userEmail = generator.nextObject(String.class);
+
+    private final Long bookingId = generator.nextLong();
+    private final LocalDateTime bookingStart = generator.nextObject(LocalDateTime.class);
+    private final LocalDateTime bookingEnd = generator.nextObject(LocalDateTime.class);
+    private final Status bookingStatus = generator.nextObject(Status.class);
+
+    private final Long itemId = generator.nextLong();
+    private final String itemName = generator.nextObject(String.class);
+    private final String itemDescription = generator.nextObject(String.class);
+    private final Boolean itemAvailable = generator.nextBoolean();
+
+    private final Long requestId = generator.nextLong();
+
+    private final User user = User.builder()
+            .id(userId)
+            .name(userName)
+            .email(userEmail)
             .build();
 
-    final Item item = Item.builder()
-            .id(ITEM_ID)
-            .name(ITEM_NAME)
-            .description(ITEM_DESCRIPTION)
-            .available(AVAILABLE)
+    private final Request request = Request.builder()
+            .id(requestId)
+            .build();
+
+    private final Item item = Item.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
             .user(user)
+            .request(request)
             .build();
 
-    final UserDtoShort userDtoShort = UserDtoShort.builder()
-            .id(USER_ID)
+    private final UserDtoShort userDtoShort = UserDtoShort.builder()
+            .id(userId)
             .build();
 
-    final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
-            .id(ITEM_ID)
-            .name(ITEM_NAME)
-            .description(ITEM_DESCRIPTION)
-            .available(AVAILABLE)
-            .ownerId(USER_ID)
+    private final ItemDtoShort itemDtoShort = ItemDtoShort.builder()
+            .id(itemId)
+            .name(itemName)
+            .description(itemDescription)
+            .available(itemAvailable)
+            .ownerId(userId)
+            .requestId(requestId)
             .build();
 
-    final Booking booking = Booking.builder()
-            .id(BOOKING_ID)
-            .start(START)
-            .end(END)
+    private final Booking booking = Booking.builder()
+            .id(bookingId)
+            .start(bookingStart)
+            .end(bookingEnd)
             .item(item)
             .user(user)
-            .status(STATUS)
+            .status(bookingStatus)
             .build();
 
-    final BookingDtoIn bookingDtoIn = BookingDtoIn.builder()
-            .id(BOOKING_ID)
-            .start(START)
-            .end(END)
-            .itemId(ITEM_ID)
+    private final BookingDtoIn bookingDtoIn = BookingDtoIn.builder()
+            .id(bookingId)
+            .start(bookingStart)
+            .end(bookingEnd)
+            .itemId(itemId)
             .build();
 
-    final BookingDtoOut bookingDtoOut = BookingDtoOut.builder()
-            .id(BOOKING_ID)
-            .start(START)
-            .end(END)
+    private final BookingDtoOut bookingDtoOut = BookingDtoOut.builder()
+            .id(bookingId)
+            .start(bookingStart)
+            .end(bookingEnd)
             .item(itemDtoShort)
-            .booker(userDtoShort)
-            .status(STATUS)
+            .user(userDtoShort)
+            .status(bookingStatus)
             .build();
+
+
+    private final BookingDtoShort bookingDtoShort = BookingDtoShort.builder()
+            .id(bookingId)
+            .bookerId(userId)
+            .build();
+
+    protected BookingModelMapperTest() {
+        super(BookingMapper.INSTANCE);
+    }
 
     @Override
     protected Booking getEntity() {
@@ -95,8 +124,17 @@ class BookingModelMapperTest extends AbstractModelMapperTest<BookingDtoIn, Booki
     @Test
     @Override
     void toEntityTest() {
-        Booking booking1 = mapper.toEntity(getDtoIn());
-        booking1.setStatus(STATUS); // service layer responsibility
-        assertEquals(getEntity(), booking1);
+        Booking b = mapper.toEntity(getDtoIn());
+        b.setStatus(bookingStatus); // service layer responsibility
+        assertEquals(getEntity(), b);
+    }
+
+    @Test
+    void toDtoShortTest() {
+        bookingShort.setId(bookingId);
+        bookingShort.setItemId(itemId);
+        bookingShort.setBookerId(userId);
+        BookingDtoShort b = BookingMapper.INSTANCE.toDtoShort(bookingShort);
+        assertEquals(bookingDtoShort, b);
     }
 }

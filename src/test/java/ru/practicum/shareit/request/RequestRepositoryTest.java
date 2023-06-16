@@ -21,27 +21,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RequestRepositoryTest {
 
     @Autowired
-    TestEntityManager entityManager;
+    private TestEntityManager entityManager;
     @Autowired
-    RequestRepository requestRepository;
+    private RequestRepository requestRepository;
 
-    final User user = User.builder()
+    private final User user = User.builder()
             .name("user1")
             .email("user1@one.ru")
             .build();
 
-    final User user2 = User.builder()
+    private final User user2 = User.builder()
             .name("user2")
             .email("user3@one.ru")
             .build();
 
-    final Item item = Item.builder()
+    private final Item item = Item.builder()
             .name("item1")
             .description("description1")
             .available(true)
             .build();
 
-    final Request request = Request.builder()
+    private final Request request = Request.builder()
             .description("newRequest")
             .created(LocalDateTime.now())
             .user(user)

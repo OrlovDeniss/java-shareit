@@ -1,7 +1,10 @@
 package ru.practicum.shareit.booking.dto;
 
-import lombok.*;
-import ru.practicum.shareit.abstraction.model.Identified;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import ru.practicum.shareit.booking.model.Status;
 import ru.practicum.shareit.item.dto.ItemDtoShort;
 import ru.practicum.shareit.user.dto.UserDtoShort;
@@ -12,19 +15,14 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BookingDtoOut implements Identified {
+public class BookingDtoOut {
 
-    @NonNull
     private Long id;
-    @NonNull
     private LocalDateTime start;
-    @NonNull
     private LocalDateTime end;
-    @NonNull
     private ItemDtoShort item;
-    @NonNull
-    private UserDtoShort booker;
-    @NonNull
+    @JsonProperty("booker")
+    private UserDtoShort user;
     private Status status;
 
 }

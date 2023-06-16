@@ -6,7 +6,4 @@ public class BookingNotFoundException extends RuntimeException {
         super("Аренда не найдена.");
     }
 
-    public BookingNotFoundException(String message) {
-        super(message);
-    }
 }

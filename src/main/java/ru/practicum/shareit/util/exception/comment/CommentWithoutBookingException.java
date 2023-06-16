@@ -6,7 +6,4 @@ public class CommentWithoutBookingException extends RuntimeException {
         super("Комментарий может добавить пользователь, который брал вещь в аренду.");
     }
 
-    public CommentWithoutBookingException(String message) {
-        super(message);
-    }
 }

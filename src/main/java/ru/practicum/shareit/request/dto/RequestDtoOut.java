@@ -1,7 +1,9 @@
 package ru.practicum.shareit.request.dto;
 
-import lombok.*;
-import ru.practicum.shareit.abstraction.model.Identified;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import ru.practicum.shareit.item.dto.ItemDtoShort;
 
 import java.time.LocalDateTime;
@@ -11,17 +13,11 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class RequestDtoOut implements Identified {
+public class RequestDtoOut {
 
-    @NonNull
     private Long id;
-
-    @NonNull
     private String description;
-
-    @NonNull
     private LocalDateTime created;
-
     private List<ItemDtoShort> items;
 
 }

@@ -15,30 +15,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserRepositoryTest {
 
     @Autowired
-    TestEntityManager entityManager;
+    private TestEntityManager entityManager;
     @Autowired
-    UserRepository userRepository;
+    private UserRepository userRepository;
 
-    final User user = User.builder()
+    private final User user1 = User.builder()
             .name("user1")
             .email("user1@user.ru")
             .build();
 
+    private final User user2 = User.builder()
+            .name("user2")
+            .email("user2@user.ru")
+            .build();
+
     @BeforeEach
     void setUp() {
-        entityManager.persistAndFlush(user);
+        entityManager.persistAndFlush(user1);
+        entityManager.persistAndFlush(user2);
     }
 
     @Test
-    void existByEmail_whenExists_thenTrue() {
-        boolean existsByEmail = userRepository.existsByEmail(user.getEmail());
-        assertTrue(existsByEmail);
+    void existByEmailAndIdNot_whenExists_thenTrue() {
+        boolean existByEmailAndIdNo = userRepository.existsByEmailAndIdNot(user1.getEmail(), user2.getId());
+        assertTrue(existByEmailAndIdNo);
     }
 
     @Test
-    void existByEmail_whenNotExists_thenFalse() {
-        boolean existsByEmail = userRepository.existsByEmail("abrabra@arbarba123.com");
-        assertFalse(existsByEmail);
+    void existByEmailAndIdNot_whenNotExists_thenFalse() {
+        boolean existByEmailAndIdNo = userRepository.existsByEmailAndIdNot("abrabra@arbarba123.com", user1.getId());
+        assertFalse(existByEmailAndIdNo);
     }
 
 }

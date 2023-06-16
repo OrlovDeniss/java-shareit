@@ -14,21 +14,23 @@ import ru.practicum.shareit.user.model.User;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 class ItemRepositoryTest {
 
     @Autowired
-    TestEntityManager entityManager;
+    private TestEntityManager entityManager;
     @Autowired
-    ItemRepository itemRepository;
+    private ItemRepository itemRepository;
 
-    final User user = User.builder()
+    private final User user = User.builder()
             .name("user1")
             .email("user1@one.ru")
             .build();
 
-    final Item item = Item.builder()
+    private final Item item = Item.builder()
             .name("item1")
             .description("description1")
             .available(true)
@@ -57,6 +59,16 @@ class ItemRepositoryTest {
     void findAllByUserIdWithComments() {
         Page<Item> foundItems = itemRepository.findAllByUserIdWithComments(user.getId(), Pageable.ofSize(10));
         assertThat(foundItems.toList()).hasSize(1);
+    }
+
+    @Test
+    void existsByIdAndUserId_whenExist_thenTrue() {
+        assertTrue(itemRepository.existsByIdAndUserId(item.getId(), user.getId()));
+    }
+
+    @Test
+    void existsByIdAndUserId_whenExist_thenFalse() {
+        assertFalse(itemRepository.existsByIdAndUserId(item.getId(), 999L));
     }
 
 }

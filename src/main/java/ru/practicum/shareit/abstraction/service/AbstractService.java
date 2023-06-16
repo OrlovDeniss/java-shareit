@@ -3,19 +3,18 @@ package ru.practicum.shareit.abstraction.service;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.repository.JpaRepository;
 import ru.practicum.shareit.abstraction.mapper.ModelMapper;
-import ru.practicum.shareit.abstraction.model.Identified;
-import ru.practicum.shareit.user.repository.UserRepository;
 import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 
 import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
-public abstract class AbstractService<I, O, E extends Identified> {
+public abstract class AbstractService<I, O, E> implements Service<I, O> {
 
+    protected final JpaRepository<E, Long> repository;
     private final ModelMapper<I, O, E> mapper;
-    protected final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
     protected E tryUpdateFields(E entity, Map<String, Object> newFields) {
@@ -23,20 +22,20 @@ public abstract class AbstractService<I, O, E extends Identified> {
             return objectMapper.updateValue(entity, newFields);
         } catch (JsonMappingException e) {
             throw new JsonUpdateFieldsException(
-                    String.format("Невозможно обновить поля объекта: %s", entity.getClass().getSimpleName()));
+                    String.format("Невозможно обновить поля объекта: %s", e.getClass().getSimpleName()));
         }
     }
 
-    public E toEntity(I in) {
-        return mapper.toEntity(in);
+    protected E toEntity(I inputDto) {
+        return mapper.toEntity(inputDto);
     }
 
-    public O toDto(E e) {
-        return mapper.toDto(e);
+    protected O toDto(E entity) {
+        return mapper.toDto(entity);
     }
 
-    public List<O> toDto(List<E> listIn) {
-        return mapper.toDto(listIn);
+    protected List<O> toDto(List<E> inputDtoList) {
+        return mapper.toDto(inputDtoList);
     }
 
 }

@@ -17,12 +17,12 @@ public class Waiting implements FinderStrategy {
 
     @Override
     public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
-        return bookingRepository.findBookingsByUserIdWhereStatus(userId, Status.WAITING, pageable).toList();
+        return bookingRepository.findAllByUserIdAndStatus(userId, Status.WAITING, pageable).toList();
     }
 
     @Override
     public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
-        return bookingRepository.findBookingsByOwnerIdWhereStatus(ownerId, Status.WAITING, pageable).toList();
+        return bookingRepository.findAllByOwnerIdAndStatus(ownerId, Status.WAITING, pageable).toList();
     }
 
 }

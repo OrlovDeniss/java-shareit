@@ -3,8 +3,8 @@ package ru.practicum.shareit.booking.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import ru.practicum.shareit.abstraction.userobject.repository.UserObjectRepository;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.booking.model.Status;
@@ -12,7 +12,7 @@ import ru.practicum.shareit.booking.model.Status;
 import java.util.List;
 import java.util.Optional;
 
-public interface BookingRepository extends UserObjectRepository<Booking> {
+public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.user " +
@@ -29,7 +29,18 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
     boolean existsBookingByItemIdAndUserIdAndStatusIsApprovedAndEndTimeBeforeCurrent(Long itemId,
                                                                                      Long userId);
 
-    Optional<Booking> findBookingByUserIdAndItemIdAndStatus(Long userId, Long itemId, Status status);
+    @Query("SELECT CASE WHEN (COUNT(b) > 0) THEN TRUE ELSE FALSE END " +
+            "FROM Booking b " +
+            "WHERE b.id = :bookingId " +
+            "AND (b.user.id = :userId OR b.item.user.id = :userId) ")
+    boolean existsByBookingIdWithUserIdOrItemUserId(Long bookingId,
+                                                    Long userId);
+
+    boolean existsByIdAndItemUserId(Long bookingId, Long userId);
+
+    boolean existsByIdAndStatus(Long bookingId, Status status);
+
+    boolean existsByIdAndUserId(Long bookingId, Long userId);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
@@ -45,49 +56,49 @@ public interface BookingRepository extends UserObjectRepository<Booking> {
     @Query("SELECT b FROM Booking b " +
             "WHERE b.start > CURRENT_TIMESTAMP " +
             "AND b.user.id = :userId ")
-    Page<Booking> findAllByUserIdWhereStartIsAfterCurrentTimestamp(Long userId, Pageable pageable);
+    Page<Booking> findAllFutureBookingsByUserId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE b.start > CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    Page<Booking> findAllByOwnerIdWhereStartIsAfterCurrentTimestamp(Long userId, Pageable pageable);
+    Page<Booking> findAllFutureBookingsByOwnerId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE b.end < CURRENT_TIMESTAMP " +
             "AND b.user.id = :userId ")
-    Page<Booking> findAllByUserIdWhereEndBeforeCurrent(Long userId, Pageable pageable);
+    Page<Booking> findAllPastBookingsByUserId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE b.end < CURRENT_TIMESTAMP " +
             "AND b.item.user.id = :userId ")
-    Page<Booking> findAllByOwnerIdWhereEndBeforeCurrent(Long userId, Pageable pageable);
+    Page<Booking> findAllPastBookingsByOwnerId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE CURRENT_TIMESTAMP BETWEEN b.start AND b.end " +
             "AND b.user.id = :userId ")
-    Page<Booking> findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Pageable pageable);
+    Page<Booking> findAllCurrentBookingsByUserId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE CURRENT_TIMESTAMP BETWEEN b.start AND b.end " +
             "AND b.item.user.id = :userId ")
-    Page<Booking> findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(Long userId, Pageable pageable);
+    Page<Booking> findAllCurrentBookingsByOwnerId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE b.status = :status " +
             "AND b.user.id = :userId ")
-    Page<Booking> findBookingsByUserIdWhereStatus(Long userId, Status status, Pageable pageable);
+    Page<Booking> findAllByUserIdAndStatus(Long userId, Status status, Pageable pageable);
 
     @EntityGraph(attributePaths = {"item", "user"})
     @Query("SELECT b FROM Booking b " +
             "WHERE b.status = :status " +
             "AND b.item.user.id = :userId ")
-    Page<Booking> findBookingsByOwnerIdWhereStatus(Long userId, Status status, Pageable pageable);
+    Page<Booking> findAllByOwnerIdAndStatus(Long userId, Status status, Pageable pageable);
 
     @Query(nativeQuery = true,
             value = "SELECT id, user_id bookerId, item_id itemId FROM booking " +

@@ -11,7 +11,7 @@ import java.util.Map;
 public interface UserController {
 
     @GetMapping("{id}")
-    UserDto get(@PathVariable @Positive Long id);
+    UserDto get(@PathVariable("id") @Positive Long userId);
 
     @PostMapping
     UserDto post(@Valid @RequestBody UserDto userDto);
@@ -20,13 +20,13 @@ public interface UserController {
     UserDto put(@Valid @RequestBody UserDto userDto);
 
     @PatchMapping("{id}")
-    UserDto patch(@PathVariable @Positive Long id,
+    UserDto patch(@PathVariable("id") @Positive Long userId,
                   @RequestBody Map<String, Object> newFields);
 
     @GetMapping
     List<UserDto> getAll();
 
     @DeleteMapping("/{id}")
-    void delete(@PathVariable @Positive Long id);
+    void delete(@PathVariable("id") @Positive Long userId);
 
 }

@@ -1,20 +1,22 @@
 package ru.practicum.shareit.item;
 
+import org.jeasy.random.EasyRandom;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.projection.ProjectionFactory;
 import org.springframework.data.projection.SpelAwareProxyProjectionFactory;
-import ru.practicum.shareit.booking.dto.BookingDtoShort;
+import org.springframework.test.util.ReflectionTestUtils;
 import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.booking.repository.BookingRepository;
 import ru.practicum.shareit.item.dto.ItemDtoIn;
 import ru.practicum.shareit.item.dto.ItemDtoOut;
 import ru.practicum.shareit.item.dto.comment.CommentDtoIn;
 import ru.practicum.shareit.item.dto.comment.CommentDtoOut;
+import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.CommentRepository;
@@ -24,15 +26,15 @@ import ru.practicum.shareit.request.model.Request;
 import ru.practicum.shareit.request.repository.RequestRepository;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
+import ru.practicum.shareit.util.config.ObjectMapperConfig;
+import ru.practicum.shareit.util.exception.comment.CommentOwnItemException;
 import ru.practicum.shareit.util.exception.comment.CommentWithoutBookingException;
-import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
-import ru.practicum.shareit.util.exception.request.RequestNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserOwnsObjectException;
+import ru.practicum.shareit.util.pagerequest.PageRequester;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,222 +42,309 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 class ItemServiceTest {
 
-    @MockBean
-    UserRepository userRepository;
-    @MockBean
-    ItemRepository itemRepository;
-    @MockBean
-    RequestRepository requestRepository;
-    @MockBean
-    BookingRepository bookingRepository;
-    @MockBean
-    CommentRepository commentRepository;
-    @Autowired
-    ItemServiceImpl itemService;
+    private ItemServiceImpl itemService;
+    private final EasyRandom generator = new EasyRandom();
+    private final ProjectionFactory factory = new SpelAwareProxyProjectionFactory();
+    private final BookingShort next = factory.createProjection(BookingShort.class);
+    private final BookingShort last = factory.createProjection(BookingShort.class);
 
-    final User user = User.builder()
-            .id(1L)
-            .name("user1")
-            .email("user1@one.ru")
-            .build();
+    private final int from = 0;
+    private final int size = 10;
 
-    final Request request = Request.builder()
-            .id(1L)
-            .description("description")
-            .created(LocalDateTime.now())
-            .build();
-
-    final ItemDtoIn itemDtoIn = ItemDtoIn.builder()
-            .id(1L)
-            .name("item1")
-            .description("description")
-            .available(true)
-            .build();
-
-    final Item item = Item.builder()
-            .name("item1")
-            .description("description")
-            .available(true)
-            .user(user)
-            .comments(new ArrayList<>())
-            .build();
-
-    final ItemDtoOut referenceItemDtoOut = ItemDtoOut.builder()
-            .id(1L)
-            .name("item1")
-            .description("description")
-            .available(true)
-            .comments(new ArrayList<>())
-            .build();
-
-    final CommentDtoIn commentDtoIn = new CommentDtoIn("commentText");
-    final Comment comment = new Comment(1L, "commentText", user, item, LocalDateTime.of(2025, 1, 1, 1, 1));
-    final CommentDtoOut commentDtoOut = new CommentDtoOut(1L, "commentText", "user1", LocalDateTime.of(2025, 1, 1, 1, 1));
-
-    final ProjectionFactory factory = new SpelAwareProxyProjectionFactory();
-    final BookingShort nextBooking = factory.createProjection(BookingShort.class);
-    final BookingShort lastBooking = factory.createProjection(BookingShort.class);
+    @BeforeEach
+    void setUp() {
+        itemService = Mockito.mock(ItemServiceImpl.class, CALLS_REAL_METHODS);
+    }
 
     @Test
-    void create_whenUserNotFound_throwUserNotFoundException() {
+    void create_whenUserNotExist_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
-
         assertThrows(UserNotFoundException.class,
-                () -> itemService.create(itemDtoIn, 1L));
-
+                () -> itemService.create(generator.nextObject(ItemDtoIn.class), generator.nextLong()));
         verify(itemRepository, never())
                 .save(any(Item.class));
     }
 
     @Test
     void create_whenRequestIdIsNull_thenReturnItemDtoOut() {
-        Long userId = 1L;
-        referenceItemDtoOut.setComments(null);
-
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        User owner = generator.nextObject(User.class);
+        ItemDtoIn in = generator.nextObject(ItemDtoIn.class);
+        in.setRequestId(null);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
         when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.of(user));
+                .thenReturn(Optional.of(owner));
         when(itemRepository.save(any(Item.class)))
                 .then(returnsFirstArg());
-
-        ItemDtoOut createdItemDtoOut = itemService.create(itemDtoIn, userId);
-        assertEquals(createdItemDtoOut, referenceItemDtoOut);
-
+        ItemDtoOut created = itemService.create(in, owner.getId());
+        assertNotNull(created.getId());
+        assertEquals(in.getName(), created.getName());
+        assertEquals(in.getDescription(), created.getDescription());
+        assertEquals(in.getAvailable(), created.getAvailable());
+        assertEquals(in.getRequestId(), created.getRequestId());
+        assertNull(created.getLastBooking());
+        assertNull(created.getNextBooking());
+        assertNull(created.getComments());
         verify(itemRepository, times(1))
                 .save(any(Item.class));
     }
 
     @Test
-    void create_whenRequestNotFound_thenThrowRequestNotFoundException() {
-        referenceItemDtoOut.setRequestId(request.getId());
-        itemDtoIn.setId(1L);
-        itemDtoIn.setRequestId(5L);
-
-        when(userRepository.existsById(anyLong()))
-                .thenReturn(true);
-        when(requestRepository.findByIdWithItems(anyLong()))
-                .thenReturn(Optional.empty());
-
-        assertThrows(RequestNotFoundException.class,
-                () -> itemService.create(itemDtoIn, 1L));
-
-        verify(itemRepository, never())
-                .save(any(Item.class));
-    }
-
-    @Test
-    void create_whenRequestFound_thenReturnItemDtoOut() {
-        Long userId = 1L;
-        referenceItemDtoOut.setRequestId(request.getId());
-        referenceItemDtoOut.setComments(null);
-        itemDtoIn.setId(1L);
-        itemDtoIn.setRequestId(1L);
-
+    void create_whenRequestIdIsNotNull_thenReturnItemDtoOut() {
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(itemService, "requestRepository", requestRepository);
+        User owner = generator.nextObject(User.class);
+        ItemDtoIn in = generator.nextObject(ItemDtoIn.class);
+        Request request = generator.nextObject(Request.class);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
         when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.of(user));
+                .thenReturn(Optional.of(owner));
         when(requestRepository.findByIdWithItems(anyLong()))
                 .thenReturn(Optional.of(request));
         when(itemRepository.save(any(Item.class)))
                 .then(returnsFirstArg());
-
-        ItemDtoOut createdItemDtoOut = itemService.create(itemDtoIn, userId);
-        assertEquals(createdItemDtoOut, referenceItemDtoOut);
-
+        ItemDtoOut created = itemService.create(in, owner.getId());
+        assertNotNull(created.getId());
+        assertEquals(in.getName(), created.getName());
+        assertEquals(in.getDescription(), created.getDescription());
+        assertEquals(in.getAvailable(), created.getAvailable());
+        assertEquals(request.getId(), created.getRequestId());
+        assertNull(created.getLastBooking());
+        assertNull(created.getNextBooking());
+        assertNull(created.getComments());
         verify(itemRepository, times(1))
                 .save(any(Item.class));
     }
 
     @Test
-    void findById_whenUserNotFound_thenThrowUserNotFoundException() {
+    void update_whenUserNotExist_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
-
         assertThrows(UserNotFoundException.class,
-                () -> itemService.findById(1L, 1L));
-
+                () -> itemService.update(generator.nextObject(ItemDtoIn.class), generator.nextLong()));
         verify(itemRepository, never())
                 .save(any(Item.class));
     }
 
     @Test
-    void findById_whenItemNotFound_thenThrowItemNotFoundException() {
+    void update_whenUserNotOwnItem_thenThrowUserOwnsObjectException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(itemRepository.findByIdWithUserAndComments(anyLong()))
-                .thenReturn(Optional.empty());
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        assertThrows(UserOwnsObjectException.class,
+                () -> itemService.update(generator.nextObject(ItemDtoIn.class), generator.nextLong()));
+        verify(itemRepository, never())
+                .save(any(Item.class));
+    }
 
-        assertThrows(ItemNotFoundException.class,
-                () -> itemService.findById(1L, 1L));
+    @Test
+    void update() {
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        RequestRepository requestRepository = Mockito.mock(RequestRepository.class);
+        ReflectionTestUtils.setField(itemService, "requestRepository", requestRepository);
+        User owner = generator.nextObject(User.class);
+        ItemDtoIn in = generator.nextObject(ItemDtoIn.class);
+        Request request = generator.nextObject(Request.class);
+        in.setRequestId(request.getId());
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(itemRepository.existsByIdAndUserId(in.getId(), owner.getId()))
+                .thenReturn(true);
+        when(userRepository.findById(anyLong()))
+                .thenReturn(Optional.of(owner));
+        when(requestRepository.findByIdWithItems(anyLong()))
+                .thenReturn(Optional.of(request));
+        when(itemRepository.save(any(Item.class)))
+                .then(returnsFirstArg());
+        ItemDtoOut updated = itemService.update(in, owner.getId());
+        assertNotNull(updated.getId());
+        assertEquals(in.getName(), updated.getName());
+        assertEquals(in.getDescription(), updated.getDescription());
+        assertEquals(in.getAvailable(), updated.getAvailable());
+        assertEquals(in.getRequestId(), updated.getRequestId());
+        assertNull(updated.getLastBooking());
+        assertNull(updated.getNextBooking());
+        assertNull(updated.getComments());
+        verify(itemRepository, times(1))
+                .save(any(Item.class));
+    }
 
+    @Test
+    void patch_whenUserNotExist_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(false);
+        assertThrows(UserNotFoundException.class,
+                () -> itemService.patch(generator.nextLong(), Map.of(), generator.nextLong()));
+        verify(itemRepository, never())
+                .save(any(Item.class));
+    }
+
+    @Test
+    void patch_whenUserNotOwnItem_thenThrowUserOwnsObjectException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        assertThrows(UserOwnsObjectException.class,
+                () -> itemService.patch(generator.nextLong(), Map.of(), generator.nextLong()));
+        verify(itemRepository, never())
+                .save(any(Item.class));
+    }
+
+    @Test
+    void patch() {
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        ReflectionTestUtils.setField(itemService, "objectMapper", new ObjectMapperConfig().objectMapper());
+        User owner = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        item.setUser(owner);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(true);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        when(itemRepository.findById(anyLong()))
+                .thenReturn(Optional.of(item));
+        when(itemRepository.save(any(Item.class)))
+                .then(returnsFirstArg());
+        ItemDtoOut updated = itemService.patch(item.getId(), Map.of(), owner.getId());
+        assertNotNull(updated.getId());
+        assertEquals(item.getName(), updated.getName());
+        assertEquals(item.getDescription(), updated.getDescription());
+        assertEquals(item.getAvailable(), updated.getAvailable());
+        assertEquals(item.getRequest().getId(), updated.getRequestId());
+        assertNull(updated.getLastBooking());
+        assertNull(updated.getNextBooking());
+        assertNotNull(updated.getComments());
+        verify(itemRepository, times(1))
+                .save(any(Item.class));
+    }
+
+    @Test
+    void findById_whenUserNotExist_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        when(userRepository.existsById(anyLong()))
+                .thenReturn(false);
+        assertThrows(UserNotFoundException.class,
+                () -> itemService.findById(generator.nextLong(), generator.nextLong()));
         verify(itemRepository, never())
                 .save(any(Item.class));
     }
 
     @Test
     void findById_whenUserIsOwner_returnItemDtoOut() {
-        Long itemId = 1L;
-        Long userId = 1L;
-        item.setId(itemId);
-        Long nextId = 4L;
-        Long lastId = 3L;
-        Long nextBookerId = 2L;
-        Long lastBookerId = 2L;
-        nextBooking.setId(nextId);
-        nextBooking.setBookerId(nextBookerId);
-        nextBooking.setItemId(1L);
-        lastBooking.setId(lastId);
-        lastBooking.setBookerId(lastBookerId);
-        lastBooking.setItemId(1L);
-        referenceItemDtoOut.setLastBooking(new BookingDtoShort(lastId, lastBookerId));
-        referenceItemDtoOut.setNextBooking(new BookingDtoShort(nextId, nextBookerId));
-
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(itemService, "bookingRepository", bookingRepository);
+        User owner = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        item.setUser(owner);
+        next.setId(generator.nextLong());
+        next.setItemId(item.getId());
+        next.setBookerId(generator.nextLong());
+        last.setId(generator.nextLong());
+        last.setItemId(item.getId());
+        last.setBookerId(generator.nextLong());
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
         when(itemRepository.findByIdWithUserAndComments(anyLong()))
                 .thenReturn(Optional.of(item));
-        when(bookingRepository.findLastBookingByItemId(itemId))
-                .thenReturn(Optional.of(lastBooking));
-        when(bookingRepository.findNextBookingByItemId(itemId))
-                .thenReturn(Optional.of(nextBooking));
-
-        ItemDtoOut itemDtoOut = itemService.findById(itemId, userId);
-        assertEquals(itemDtoOut, referenceItemDtoOut);
-
+        when(bookingRepository.findLastBookingByItemId(anyLong()))
+                .thenReturn(Optional.of(last));
+        when(bookingRepository.findNextBookingByItemId(anyLong()))
+                .thenReturn(Optional.of(next));
+        ItemDtoOut found = itemService.findById(item.getId(), owner.getId());
+        assertEquals(item.getId(), found.getId());
+        assertEquals(item.getName(), found.getName());
+        assertEquals(item.getDescription(), found.getDescription());
+        assertEquals(item.getAvailable(), found.getAvailable());
+        assertEquals(item.getRequest().getId(), found.getRequestId());
+        assertEquals(last.getId(), found.getLastBooking().getId());
+        assertEquals(last.getBookerId(), found.getLastBooking().getBookerId());
+        assertEquals(next.getId(), found.getNextBooking().getId());
+        assertEquals(next.getBookerId(), found.getNextBooking().getBookerId());
         verify(itemRepository, times(1))
                 .findByIdWithUserAndComments(anyLong());
+        verify(bookingRepository, times(1))
+                .findLastBookingByItemId(anyLong());
+        verify(bookingRepository, times(1))
+                .findNextBookingByItemId(anyLong());
     }
 
     @Test
     void findById_whenUserIsNotOwner_returnItemDtoOut() {
-        Long itemId = 1L;
-        Long userId = 2L;
-        item.setId(itemId);
-        nextBooking.setId(2L);
-        nextBooking.setBookerId(2L);
-        nextBooking.setItemId(1L);
-        lastBooking.setId(1L);
-        lastBooking.setBookerId(2L);
-        lastBooking.setItemId(1L);
-
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(itemService, "bookingRepository", bookingRepository);
+        User owner = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        item.setUser(owner);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
         when(itemRepository.findByIdWithUserAndComments(anyLong()))
                 .thenReturn(Optional.of(item));
-        when(bookingRepository.findLastBookingByItemId(itemId))
-                .thenReturn(Optional.of(lastBooking));
-        when(bookingRepository.findNextBookingByItemId(itemId))
-                .thenReturn(Optional.of(nextBooking));
-
-        ItemDtoOut itemDtoOut = itemService.findById(itemId, userId);
-        assertEquals(itemDtoOut, referenceItemDtoOut);
-
+        ItemDtoOut found = itemService.findById(item.getId(), generator.nextLong());
+        assertEquals(item.getId(), found.getId());
+        assertEquals(item.getName(), found.getName());
+        assertEquals(item.getDescription(), found.getDescription());
+        assertEquals(item.getAvailable(), found.getAvailable());
+        assertEquals(item.getRequest().getId(), found.getRequestId());
+        assertNull(found.getLastBooking());
+        assertNull(found.getNextBooking());
         verify(itemRepository, times(1))
                 .findByIdWithUserAndComments(anyLong());
         verify(bookingRepository, never())
@@ -265,141 +354,142 @@ class ItemServiceTest {
     }
 
     @Test
-    void findAllByUserId_whenUserNotFound_thenThrowUserNotFoundException() {
+    void findAllByUserId_whenUserNotExist_thenThrowUserNotFoundException() {
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
         when(userRepository.existsById(anyLong()))
                 .thenReturn(false);
-
         assertThrows(UserNotFoundException.class,
-                () -> itemService.findAllByUserId(1, 1, 1L));
-
+                () -> itemService.findAllByUserId(generator.nextInt(), generator.nextInt(), generator.nextLong()));
         verify(itemRepository, never())
                 .save(any(Item.class));
     }
 
     @Test
-    void findAllByUserId_whenParamsIsCorrect_thenReturnItemDtoOut() {
-        Long userId = 1L;
-        Integer from = 1;
-        Integer size = 10;
-        item.setId(1L);
-        Long nextId = 4L;
-        Long lastId = 3L;
-        Long nextBookerId = 2L;
-        Long lastBookerId = 2L;
-        nextBooking.setId(nextId);
-        nextBooking.setBookerId(nextBookerId);
-        nextBooking.setItemId(1L);
-        lastBooking.setId(lastId);
-        lastBooking.setBookerId(lastBookerId);
-        lastBooking.setItemId(1L);
-        referenceItemDtoOut.setLastBooking(new BookingDtoShort(lastId, lastBookerId));
-        referenceItemDtoOut.setNextBooking(new BookingDtoShort(nextId, nextBookerId));
-
+    void findAllByUserId() {
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(itemService, "bookingRepository", bookingRepository);
+        User owner = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        item.setUser(owner);
+        next.setId(generator.nextLong());
+        next.setItemId(item.getId());
+        next.setBookerId(generator.nextLong());
+        last.setId(generator.nextLong());
+        last.setItemId(item.getId());
+        last.setBookerId(generator.nextLong());
         when(userRepository.existsById(anyLong()))
                 .thenReturn(true);
-        when(itemRepository.findAllByUserIdWithComments(anyLong(), any(Pageable.class)))
+        when(itemRepository.findAllByUserIdWithComments(anyLong(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(item)));
         when(bookingRepository.findLastBookingsByUserId(anyLong()))
-                .thenReturn(List.of(lastBooking));
+                .thenReturn(List.of(last));
         when(bookingRepository.findNextBookingsByUserId(anyLong()))
-                .thenReturn(List.of(nextBooking));
-
-        List<ItemDtoOut> allByUserId = itemService.findAllByUserId(from, size, userId);
-        assertArrayEquals(allByUserId.toArray(), List.of(referenceItemDtoOut).toArray());
+                .thenReturn(List.of(next));
+        List<ItemDtoOut> foundList = itemService.findAllByUserId(from, size, owner.getId());
+        assertThat(foundList).hasSize(1);
+        ItemDtoOut found = foundList.get(0);
+        assertEquals(item.getId(), found.getId());
+        assertEquals(item.getName(), found.getName());
+        assertEquals(item.getDescription(), found.getDescription());
+        assertEquals(item.getAvailable(), found.getAvailable());
+        assertEquals(item.getRequest().getId(), found.getRequestId());
+        assertEquals(last.getId(), found.getLastBooking().getId());
+        assertEquals(last.getBookerId(), found.getLastBooking().getBookerId());
+        assertEquals(next.getId(), found.getNextBooking().getId());
+        assertEquals(next.getBookerId(), found.getNextBooking().getBookerId());
     }
 
     @Test
     void searchByNameOrDescription() {
-        Integer from = 1;
-        Integer size = 1;
-        String text = "item";
-        item.setId(referenceItemDtoOut.getId());
-        referenceItemDtoOut.setComments(null);
-
+        ReflectionTestUtils.setField(itemService, "mapper", ItemMapper.INSTANCE);
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        Item item = generator.nextObject(Item.class);
         when(itemRepository.findAllByNameContainsIgnoreCaseOrDescriptionContainsIgnoreCaseAndAvailableIsTrue(
-                anyString(), anyString(), any(Pageable.class)))
+                anyString(), anyString(), any(PageRequester.class)))
                 .thenReturn(new PageImpl<>(List.of(item)));
-
-        List<ItemDtoOut> itemDtoOuts = itemService.searchByNameOrDescription(from, size, text);
-        assertThat(itemDtoOuts).hasSize(1);
-        assertEquals(itemDtoOuts.get(0), referenceItemDtoOut);
+        List<ItemDtoOut> foundList = itemService.searchByNameOrDescription(from, size, item.getDescription());
+        assertThat(foundList).hasSize(1);
+        ItemDtoOut found = foundList.get(0);
+        assertEquals(item.getId(), found.getId());
+        assertEquals(item.getName(), found.getName());
+        assertEquals(item.getDescription(), found.getDescription());
+        assertEquals(item.getAvailable(), found.getAvailable());
+        assertEquals(item.getRequest().getId(), found.getRequestId());
+        assertNull(found.getLastBooking());
+        assertNull(found.getNextBooking());
     }
 
     @Test
-    void createComment_whenUserNotFound_thenThrowUserNotFoundException() {
-        when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.empty());
-
-        assertThrows(UserNotFoundException.class,
-                () -> itemService.createComment(1L, 1L, commentDtoIn));
-
+    void createComment_whenUserCommentOwnItem_thenReturnCommentOwnItemException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        CommentRepository commentRepository = Mockito.mock(CommentRepository.class);
+        ReflectionTestUtils.setField(itemService, "commentRepository", commentRepository);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(true);
+        assertThrows(CommentOwnItemException.class,
+                () -> itemService.createComment(generator.nextLong(), generator.nextLong(), generator.nextObject(CommentDtoIn.class)));
         verify(commentRepository, never())
                 .save(any(Comment.class));
     }
 
     @Test
-    void createComment_whenItemNotFound_thenThrowItemNotFoundException() {
-        when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.of(user));
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.empty());
-
-        assertThrows(ItemNotFoundException.class,
-                () -> itemService.createComment(1L, 1L, commentDtoIn));
-
-        verify(commentRepository, never())
-                .save(any(Comment.class));
-    }
-
-    @Test
-    void createComment_whenUserCommentOwnItem_thenThrowUserOwnsObjectException() {
-        when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.of(user));
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.of(item));
-
-        assertThrows(UserOwnsObjectException.class,
-                () -> itemService.createComment(1L, 1L, commentDtoIn));
-
-        verify(commentRepository, never())
-                .save(any(Comment.class));
-    }
-
-    @Test
-    void createComment_whenUserCommentWithoutBooking_thenThrowCommentWithoutBookingException() {
-        Long notOwnerId = 31L;
-
-        when(userRepository.findById(anyLong()))
-                .thenReturn(Optional.of(user));
-        when(itemRepository.findByIdWithUser(anyLong()))
-                .thenReturn(Optional.of(item));
+    void createComment_whenUserCommentWithoutBooking_thenReturnCommentOwnItemException() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        CommentRepository commentRepository = Mockito.mock(CommentRepository.class);
+        ReflectionTestUtils.setField(itemService, "commentRepository", commentRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(itemService, "bookingRepository", bookingRepository);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
         when(bookingRepository.existsBookingByItemIdAndUserIdAndStatusIsApprovedAndEndTimeBeforeCurrent(anyLong(), anyLong()))
                 .thenReturn(false);
-
         assertThrows(CommentWithoutBookingException.class,
-                () -> itemService.createComment(1L, notOwnerId, commentDtoIn));
-
+                () -> itemService.createComment(generator.nextLong(), generator.nextLong(), generator.nextObject(CommentDtoIn.class)));
         verify(commentRepository, never())
                 .save(any(Comment.class));
     }
 
     @Test
-    void createComment_whenChecksIsOk_thenReturnCommentDtoOut() {
-        Long notOwnerId = 31L;
-
+    void createComment() {
+        ItemRepository itemRepository = Mockito.mock(ItemRepository.class);
+        ReflectionTestUtils.setField(itemService, "repository", itemRepository);
+        CommentRepository commentRepository = Mockito.mock(CommentRepository.class);
+        ReflectionTestUtils.setField(itemService, "commentRepository", commentRepository);
+        BookingRepository bookingRepository = Mockito.mock(BookingRepository.class);
+        ReflectionTestUtils.setField(itemService, "bookingRepository", bookingRepository);
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
+        ReflectionTestUtils.setField(itemService, "userRepository", userRepository);
+        CommentDtoIn in = generator.nextObject(CommentDtoIn.class);
+        User user = generator.nextObject(User.class);
+        Item item = generator.nextObject(Item.class);
+        when(itemRepository.existsByIdAndUserId(anyLong(), anyLong()))
+                .thenReturn(false);
+        when(bookingRepository.existsBookingByItemIdAndUserIdAndStatusIsApprovedAndEndTimeBeforeCurrent(anyLong(), anyLong()))
+                .thenReturn(true);
         when(userRepository.findById(anyLong()))
                 .thenReturn(Optional.of(user));
         when(itemRepository.findByIdWithUser(anyLong()))
                 .thenReturn(Optional.of(item));
-        when(bookingRepository.existsBookingByItemIdAndUserIdAndStatusIsApprovedAndEndTimeBeforeCurrent(anyLong(), anyLong()))
-                .thenReturn(true);
         when(commentRepository.save(any(Comment.class)))
-                .thenReturn(comment);
-
-        CommentDtoOut comment1 = itemService.createComment(1L, notOwnerId, commentDtoIn);
-        assertEquals(comment1, commentDtoOut);
-
+                .then(returnsFirstArg());
+        CommentDtoOut created = itemService.createComment(item.getId(), user.getId(), in);
+        assertNull(created.getId()); // database responsibility
+        assertEquals(in.getText(), created.getText());
+        assertEquals(user.getName(), created.getAuthorName());
+        assertNotNull(created.getCreated());
         verify(commentRepository, times(1))
                 .save(any(Comment.class));
     }
+
 }

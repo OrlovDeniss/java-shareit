@@ -15,21 +15,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RequestDtoOutJsonTest {
 
     @Autowired
-    JacksonTester<RequestDtoOut> jacksonTester;
+    private JacksonTester<RequestDtoOut> jacksonTester;
 
-    static final LocalDateTime CREATED = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
+    private final LocalDateTime created = LocalDateTime.of(2077, 1, 1, 1, 1, 1);
 
     @Test
     void bookingDtoOut_startAndEndTest() throws Exception {
         RequestDtoOut requestDtoOut = RequestDtoOut.builder()
                 .id(1L)
                 .description("description")
-                .created(CREATED)
+                .created(created)
                 .build();
-
         JsonContent<RequestDtoOut> jsonContent = jacksonTester.write(requestDtoOut);
-
         assertThat(jsonContent).extractingJsonPathStringValue("$.created")
-                .isEqualTo(CREATED.toString());
+                .isEqualTo(created.toString());
     }
+
 }

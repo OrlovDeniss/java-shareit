@@ -6,7 +6,4 @@ public class RequestNotFoundException extends RuntimeException {
         super("Request не существует.");
     }
 
-    public RequestNotFoundException(String message) {
-        super(message);
-    }
 }

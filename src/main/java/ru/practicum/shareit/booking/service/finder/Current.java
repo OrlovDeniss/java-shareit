@@ -16,12 +16,12 @@ public class Current implements FinderStrategy {
 
     @Override
     public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
-        return bookingRepository.findAllByUserIdWhereCurrentTimestampBetweenStartAndEnd(userId, pageable).toList();
+        return bookingRepository.findAllCurrentBookingsByUserId(userId, pageable).toList();
     }
 
     @Override
     public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
-        return bookingRepository.findAllByOwnerIdWhereCurrentTimestampBetweenStartAndEnd(ownerId, pageable).toList();
+        return bookingRepository.findAllCurrentBookingsByOwnerId(ownerId, pageable).toList();
     }
 
 }

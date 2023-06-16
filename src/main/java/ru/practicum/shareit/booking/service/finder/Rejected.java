@@ -17,12 +17,12 @@ public class Rejected implements FinderStrategy {
 
     @Override
     public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
-        return bookingRepository.findBookingsByUserIdWhereStatus(userId, Status.REJECTED, pageable).toList();
+        return bookingRepository.findAllByUserIdAndStatus(userId, Status.REJECTED, pageable).toList();
     }
 
     @Override
     public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
-        return bookingRepository.findBookingsByOwnerIdWhereStatus(ownerId, Status.REJECTED, pageable).toList();
+        return bookingRepository.findAllByOwnerIdAndStatus(ownerId, Status.REJECTED, pageable).toList();
     }
 
 }

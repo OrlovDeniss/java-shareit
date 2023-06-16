@@ -1,49 +1,56 @@
 package ru.practicum.shareit.abstraction.mapper;
 
-import ru.practicum.shareit.item.dto.ItemDtoIn;
-import ru.practicum.shareit.item.dto.ItemDtoOut;
-import ru.practicum.shareit.item.model.Item;
+import org.junit.jupiter.api.Test;
+import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserDtoShort;
+import ru.practicum.shareit.user.mapper.UserMapper;
+import ru.practicum.shareit.user.model.User;
 
-class UserModelMapperTest extends AbstractModelMapperTest<ItemDtoIn, ItemDtoOut, Item> {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    private static final Long ID = 1L;
-    private static final String NAME = "name";
-    private static final String DESCRIPTION = "description";
-    private static final boolean AVAILABLE = true;
+class UserModelMapperTest extends AbstractModelMapperTest<UserDto, UserDto, User> {
 
-    final Item item = Item.builder()
-            .id(ID)
-            .name(NAME)
-            .description(DESCRIPTION)
-            .available(AVAILABLE)
+    private final Long userId = generator.nextLong();
+    private final String userName = generator.nextObject(String.class);
+    private final String userEmail = generator.nextObject(String.class);
+
+    private final User user = User.builder()
+            .id(userId)
+            .name(userName)
+            .email(userEmail)
             .build();
 
-    final ItemDtoIn itemDtoIn = ItemDtoIn.builder()
-            .id(ID)
-            .name(NAME)
-            .description(DESCRIPTION)
-            .available(AVAILABLE)
+    private final UserDto userDto = UserDto.builder()
+            .id(userId)
+            .name(userName)
+            .email(userEmail)
             .build();
 
-    final ItemDtoOut itemDtoOut = ItemDtoOut.builder()
-            .id(ID)
-            .name(NAME)
-            .description(DESCRIPTION)
-            .available(AVAILABLE)
+    private final UserDtoShort userDtoShort = UserDtoShort.builder()
+            .id(userId)
             .build();
 
-    @Override
-    protected Item getEntity() {
-        return item;
+    protected UserModelMapperTest() {
+        super(UserMapper.INSTANCE);
     }
 
     @Override
-    protected ItemDtoIn getDtoIn() {
-        return itemDtoIn;
+    protected User getEntity() {
+        return user;
     }
 
     @Override
-    protected ItemDtoOut getDtoOut() {
-        return itemDtoOut;
+    protected UserDto getDtoIn() {
+        return userDto;
+    }
+
+    @Override
+    protected UserDto getDtoOut() {
+        return userDto;
+    }
+
+    @Test
+    void toDtoShort() {
+        assertEquals(UserMapper.INSTANCE.toDtoShort(user), userDtoShort);
     }
 }

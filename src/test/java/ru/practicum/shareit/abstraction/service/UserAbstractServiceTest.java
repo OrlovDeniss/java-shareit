@@ -6,35 +6,36 @@ import java.util.Map;
 
 class UserAbstractServiceTest extends AbstractServiceTest<User> {
 
-    private static final Long USER_ID = 1L;
-    private static final String USER_NAME = "name";
-    private static final String UPDATED_USER_NAME = "updName";
-    private static final String USER_EMAIL = "user@user.com";
-    private static final String UPDATED_USER_EMAIL = "updUser@user.com";
+    private final Long userId = generator.nextLong();
+    private final String userName = generator.nextObject(String.class);
+    private final String userEmail = generator.nextObject(String.class);
+
+    private final String updatedUserName = generator.nextObject(String.class);
+    private final String updatedUserEmail = generator.nextObject(String.class);
 
     @Override
     protected User getEntity() {
         return User.builder()
-                .id(USER_ID)
-                .name(USER_NAME)
-                .email(USER_EMAIL)
+                .id(userId)
+                .name(userName)
+                .email(userEmail)
                 .build();
     }
 
     @Override
     protected User getReference() {
         return User.builder()
-                .id(USER_ID)
-                .name(UPDATED_USER_NAME)
-                .email(UPDATED_USER_EMAIL)
+                .id(userId)
+                .name(updatedUserName)
+                .email(updatedUserEmail)
                 .build();
     }
 
     @Override
     protected Map<String, Object> getNewFields() {
         return Map.of(
-                "name", UPDATED_USER_NAME,
-                "email", UPDATED_USER_EMAIL
+                "name", updatedUserName,
+                "email", updatedUserEmail
         );
     }
 

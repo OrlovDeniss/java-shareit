@@ -16,12 +16,12 @@ public class Past implements FinderStrategy {
 
     @Override
     public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
-        return bookingRepository.findAllByUserIdWhereEndBeforeCurrent(userId, pageable).toList();
+        return bookingRepository.findAllPastBookingsByUserId(userId, pageable).toList();
     }
 
     @Override
     public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
-        return bookingRepository.findAllByOwnerIdWhereEndBeforeCurrent(ownerId, pageable).toList();
+        return bookingRepository.findAllPastBookingsByOwnerId(ownerId, pageable).toList();
     }
 
 }

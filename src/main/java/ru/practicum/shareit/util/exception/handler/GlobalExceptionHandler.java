@@ -8,17 +8,18 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.practicum.shareit.util.exception.booking.*;
+import ru.practicum.shareit.util.exception.comment.CommentOwnItemException;
 import ru.practicum.shareit.util.exception.comment.CommentWithoutBookingException;
-import ru.practicum.shareit.util.exception.general.EntityNotFoundException;
-import ru.practicum.shareit.util.exception.general.IncorrectRequestParamException;
 import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 import ru.practicum.shareit.util.exception.general.UnsupportedStateException;
 import ru.practicum.shareit.util.exception.item.ItemNotAvailableException;
 import ru.practicum.shareit.util.exception.item.ItemNotFoundException;
+import ru.practicum.shareit.util.exception.request.RequestNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserEmailAlreadyExistsException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 import ru.practicum.shareit.util.exception.user.UserOwnsObjectException;
 
+import javax.persistence.EntityNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,11 +39,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({
-            BookingAlreadyApprovedException.class,
-            BookingAlreadyExistsException.class,
-            BookingTimeConstraintException.class,
+            BookingStartEndTimeException.class,
+            BookingPatchConstraintException.class,
+            BookingUpdateAccessException.class,
             CommentWithoutBookingException.class,
-            IncorrectRequestParamException.class,
             ItemNotAvailableException.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -54,9 +54,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             BookingAccessException.class,
             BookingNotFoundException.class,
-            BookingOwnerItemException.class,
+            BookingItemOwnerException.class,
+            BookingStatusPatchException.class,
+            CommentOwnItemException.class,
             EntityNotFoundException.class,
             ItemNotFoundException.class,
+            RequestNotFoundException.class,
             UserNotFoundException.class,
             UserOwnsObjectException.class
     })
