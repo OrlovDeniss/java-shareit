@@ -4,15 +4,18 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import ru.practicum.shareit.abstraction.model.Identified;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ItemDtoShort implements Identified {
+public class ItemDtoShort {
 
     private Long id;
     private String name;
+    private String description;
+    private boolean available;
+    private Long requestId;
+    private Long ownerId;
 
 }

@@ -1,13 +1,15 @@
 package ru.practicum.shareit.user.service;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.shareit.abstraction.mapper.ModelMapper;
-import ru.practicum.shareit.abstraction.service.AbstractService;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
+import ru.practicum.shareit.util.exception.general.JsonUpdateFieldsException;
 import ru.practicum.shareit.util.exception.user.UserEmailAlreadyExistsException;
 import ru.practicum.shareit.util.exception.user.UserNotFoundException;
 
@@ -15,59 +17,81 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class UserServiceImpl extends AbstractService<UserDto, UserDto, User> implements UserService {
+@Transactional
+@RequiredArgsConstructor
+public class UserServiceImpl implements UserService {
 
-    public UserServiceImpl(ModelMapper<UserDto, UserDto, User> mapper,
-                           UserRepository userRepository,
-                           ObjectMapper objectMapper) {
-        super(mapper, userRepository, objectMapper);
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public UserDto create(UserDto userDto) {
+        return toDto(userRepository.save(toEntity(userDto)));
     }
 
+    @Override
+    public UserDto update(UserDto userDto) {
+        throwWhenUserNotExist(userDto.getId());
+        return toDto(userRepository.save(toEntity(userDto)));
+    }
+
+    @Override
+    public UserDto patch(Long userId, Map<String, Object> newFields) {
+        throwWhenEmailAlreadyExists(userId, newFields);
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        return toDto(userRepository.save(tryUpdateFields(user, newFields)));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserDto findById(Long id) {
         return toDto(userRepository.findById(id).orElseThrow(UserNotFoundException::new));
     }
 
-    @Transactional
-    public UserDto create(UserDto userDTO) {
-        return toDto(userRepository.save(toEntity(userDTO)));
-    }
-
-    @Transactional
-    public UserDto update(UserDto userDto) {
-        throwWhenUserNotFound(userDto.getId());
-        return toDto(userRepository.save(toEntity(userDto)));
-    }
-
-    @Transactional
-    public UserDto patch(Long id, Map<String, Object> newFields) {
-        User user = userRepository.findById(id).orElseThrow(UserNotFoundException::new);
-        throwWhenEmailAlreadyExists(newFields, user);
-        return toDto(userRepository.save(tryUpdateFields(user, newFields)));
-    }
-
+    @Override
     @Transactional(readOnly = true)
     public List<UserDto> findAll() {
         return toDto(userRepository.findAll());
     }
 
-    @Transactional
+    @Override
     public void delete(Long id) {
-        throwWhenUserNotFound(id);
+        throwWhenUserNotExist(id);
         userRepository.deleteById(id);
     }
 
-    private void throwWhenUserNotFound(Long id) {
+    private User tryUpdateFields(User user, Map<String, Object> newFields) {
+        try {
+            return objectMapper.updateValue(user, newFields);
+        } catch (JsonMappingException e) {
+            throw new JsonUpdateFieldsException(
+                    String.format("Невозможно обновить поля объекта: %s", user.getClass().getSimpleName()));
+        }
+    }
+
+    private void throwWhenUserNotExist(Long id) {
         if (!userRepository.existsById(id)) {
             throw new UserNotFoundException(String.format("id = %d не существует!", id));
         }
     }
 
-    private void throwWhenEmailAlreadyExists(Map<String, Object> newFields, User user) {
+    private void throwWhenEmailAlreadyExists(Long userId, Map<String, Object> newFields) {
         String newEmail = String.valueOf(newFields.get("email"));
-        if (userRepository.existsByEmail(newEmail) && !user.getEmail().equals(newEmail)) {
+        if (userRepository.existsByEmailAndIdNot(newEmail, userId)) {
             throw new UserEmailAlreadyExistsException(String.format("Email = %s уже существует!", newEmail));
         }
+    }
+
+    private UserDto toDto(User user) {
+        return UserMapper.INSTANCE.toDto(user);
+    }
+
+    private List<UserDto> toDto(List<User> user) {
+        return UserMapper.INSTANCE.toDto(user);
+    }
+
+    private User toEntity(UserDto userDto) {
+        return UserMapper.INSTANCE.toEntity(userDto);
     }
 
 }

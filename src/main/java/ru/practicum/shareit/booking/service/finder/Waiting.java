@@ -1,6 +1,7 @@
 package ru.practicum.shareit.booking.service.finder;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.booking.model.Status;
@@ -15,13 +16,13 @@ public class Waiting implements FinderStrategy {
     private final BookingRepository bookingRepository;
 
     @Override
-    public List<Booking> findAllByUserId(Long userId) {
-        return bookingRepository.findBookingsByUserIdWhereStatus(userId, Status.WAITING, sort);
+    public List<Booking> findAllByUserId(Long userId, Pageable pageable) {
+        return bookingRepository.findAllByUserIdAndStatus(userId, Status.WAITING, pageable).toList();
     }
 
     @Override
-    public List<Booking> findAllByOwnerId(Long ownerId) {
-        return bookingRepository.findBookingsByOwnerIdWhereStatus(ownerId, Status.WAITING, sort);
+    public List<Booking> findAllByOwnerId(Long ownerId, Pageable pageable) {
+        return bookingRepository.findAllByOwnerIdAndStatus(ownerId, Status.WAITING, pageable).toList();
     }
 
 }

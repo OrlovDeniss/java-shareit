@@ -6,7 +6,4 @@ public class ItemNotFoundException extends RuntimeException {
         super("Предмет не найден.");
     }
 
-    public ItemNotFoundException(String message) {
-        super(message);
-    }
 }

@@ -6,7 +6,4 @@ public class UnsupportedStateException extends RuntimeException {
         super("Unknown state: UNSUPPORTED_STATUS");
     }
 
-    public UnsupportedStateException(String message) {
-        super(message);
-    }
 }

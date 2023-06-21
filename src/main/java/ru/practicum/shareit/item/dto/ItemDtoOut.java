@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import ru.practicum.shareit.abstraction.model.Identified;
 import ru.practicum.shareit.booking.dto.BookingDtoShort;
 import ru.practicum.shareit.item.dto.comment.CommentDtoOut;
 
@@ -14,7 +13,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ItemDtoOut implements Identified {
+public class ItemDtoOut {
 
     private Long id;
     private String name;
@@ -23,5 +22,6 @@ public class ItemDtoOut implements Identified {
     private BookingDtoShort lastBooking;
     private BookingDtoShort nextBooking;
     private List<CommentDtoOut> comments;
+    private Long requestId;
 
 }

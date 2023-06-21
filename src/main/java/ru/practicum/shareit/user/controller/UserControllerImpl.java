@@ -1,6 +1,7 @@
 package ru.practicum.shareit.user.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,6 +11,7 @@ import ru.practicum.shareit.user.service.UserService;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @Validated
 @RequiredArgsConstructor
@@ -18,28 +20,36 @@ public class UserControllerImpl implements UserController {
 
     private final UserService userService;
 
-    public UserDto get(Long id) {
-        return userService.findById(id);
+    private static final String PATH = "/users";
+
+    public UserDto get(Long userId) {
+        log.info("GET {}/{}", PATH, userId);
+        return userService.findById(userId);
     }
 
-    public UserDto post(UserDto userDto) {
-        return userService.create(userDto);
+    public UserDto post(UserDto userDtoIn) {
+        log.info("POST {}, userDtoIn = {}", PATH, userDtoIn);
+        return userService.create(userDtoIn);
     }
 
-    public UserDto put(UserDto userDto) {
-        return userService.update(userDto);
+    public UserDto put(UserDto userDtoIn) {
+        log.info("PUT {}, userDtoIn = {}", PATH, userDtoIn);
+        return userService.update(userDtoIn);
     }
 
-    public UserDto patch(Long id, Map<String, Object> newFields) {
-        return userService.patch(id, newFields);
+    public UserDto patch(Long userId, Map<String, Object> newFields) {
+        log.info("PATCH {}/{}, newFields = {}", PATH, userId, newFields);
+        return userService.patch(userId, newFields);
     }
 
     public List<UserDto> getAll() {
+        log.info("GET {}.", PATH);
         return userService.findAll();
     }
 
-    public void delete(Long id) {
-        userService.delete(id);
+    public void delete(Long userId) {
+        log.info("DELETE {}/{}.", PATH, userId);
+        userService.delete(userId);
     }
 
 }

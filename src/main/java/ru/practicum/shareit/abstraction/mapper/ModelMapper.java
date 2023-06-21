@@ -6,8 +6,8 @@ public interface ModelMapper<I, O, E> {
 
     O toDto(E entity);
 
-    List<O> toDto(List<E> entities);
-
     E toEntity(I dtoIn);
+
+    List<O> toDto(List<E> entities);
 
 }
