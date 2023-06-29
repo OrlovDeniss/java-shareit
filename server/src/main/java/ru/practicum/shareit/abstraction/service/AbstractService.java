@@ -22,7 +22,7 @@ public abstract class AbstractService<I, O, E> implements Service<I, O> {
             return objectMapper.updateValue(entity, newFields);
         } catch (JsonMappingException e) {
             throw new JsonUpdateFieldsException(
-                    String.format("Невозможно обновить поля объекта: %s", e.getClass().getSimpleName()));
+                    String.format("Невозможно обновить поля объекта: %s", entity.getClass().getSimpleName()));
         }
     }
 
