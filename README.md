@@ -8,6 +8,9 @@
 - Spring Data
 - PostgreSQl
 - Mockito
+- MapStruct
+- Lombok
+- Docker
 
 ## API
 Service URL: http://localhost:9090.  
@@ -74,5 +77,9 @@ cd java-shareit
 ```Bash
 mvn clean package
 ```
+4. Запустите проект:
+```Bash
+docker compose up
+```
 ## Статус проекта
-В разработке
+Завершен.
